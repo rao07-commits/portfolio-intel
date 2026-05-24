@@ -27,9 +27,11 @@ export async function GET(req: NextRequest) {
 
     // 2. Fetch market data for portfolio holdings
     const holdings = await getHoldings();
+    console.log("Holdings found:", holdings.length, holdings.map(h => `${h.symbol}:${h.asset_type}`));
     const symbols = holdings
       .filter((h) => h.asset_type === "stock" || h.asset_type === "etf")
       .map((h) => h.symbol);
+    console.log("Symbols to fetch:", symbols);
 
     const quotes = await fetchYahooQuotesBatch(symbols);
     const today = new Date().toISOString().split("T")[0];
@@ -59,6 +61,7 @@ export async function GET(req: NextRequest) {
       macroSeriesFetched: Object.keys(fredData).length,
       macroObservationsInserted: macroInserted,
       quotesFetched: quotesInserted,
+      holdingsFound: holdings.length,
       symbolsRequested: symbols.length,
       quotesReturned: quotes.length,
       fredErrors: fredErrors.length,
