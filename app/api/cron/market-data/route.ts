@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { sql } from "@vercel/postgres";
 import { initDB, upsertMacro, upsertMarketData, getHoldings } from "@/lib/db";
 import { fetchAllFredSeries } from "@/lib/apis/fred";
 import { fetchYahooQuotesBatch } from "@/lib/apis/yahoo-finance";
@@ -26,8 +27,9 @@ export async function GET(req: NextRequest) {
     }
 
     // 2. Fetch market data for portfolio holdings
+    const rawCount = await sql`SELECT COUNT(*) as cnt FROM holdings`;
     const holdings = await getHoldings();
-    console.log("Holdings found:", holdings.length, holdings.map(h => `${h.symbol}:${h.asset_type}`));
+    console.log("Raw count:", rawCount.rows[0]?.cnt, "Holdings found:", holdings.length);
     const symbols = holdings
       .filter((h) => h.asset_type === "stock" || h.asset_type === "etf")
       .map((h) => h.symbol);
@@ -61,6 +63,7 @@ export async function GET(req: NextRequest) {
       macroSeriesFetched: Object.keys(fredData).length,
       macroObservationsInserted: macroInserted,
       quotesFetched: quotesInserted,
+      rawHoldingsCount: rawCount.rows[0]?.cnt,
       holdingsFound: holdings.length,
       symbolsRequested: symbols.length,
       quotesReturned: quotes.length,
