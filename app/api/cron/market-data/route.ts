@@ -34,19 +34,24 @@ export async function GET(req: NextRequest) {
     const quotes = await fetchYahooQuotesBatch(symbols);
     const today = new Date().toISOString().split("T")[0];
     let quotesInserted = 0;
+    const quoteErrors: string[] = [];
 
     for (const q of quotes) {
-      await upsertMarketData({
-        symbol: q.symbol,
-        date: today,
-        open: q.open,
-        high: q.high,
-        low: q.low,
-        close: q.close,
-        volume: q.volume,
-        change_pct: q.changePct,
-      });
-      quotesInserted++;
+      try {
+        await upsertMarketData({
+          symbol: q.symbol,
+          date: today,
+          open: q.open,
+          high: q.high,
+          low: q.low,
+          close: q.close,
+          volume: q.volume,
+          change_pct: q.changePct,
+        });
+        quotesInserted++;
+      } catch (err) {
+        quoteErrors.push(`${q.symbol}: ${err}`);
+      }
     }
 
     return NextResponse.json({
@@ -54,7 +59,10 @@ export async function GET(req: NextRequest) {
       macroSeriesFetched: Object.keys(fredData).length,
       macroObservationsInserted: macroInserted,
       quotesFetched: quotesInserted,
+      symbolsRequested: symbols.length,
+      quotesReturned: quotes.length,
       fredErrors: fredErrors.length,
+      quoteErrors,
       timestamp: new Date().toISOString(),
     });
   } catch (err) {
