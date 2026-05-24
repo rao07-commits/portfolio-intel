@@ -12,7 +12,7 @@ interface YahooQuote {
 }
 
 export async function fetchYahooQuote(symbol: string): Promise<YahooQuote> {
-  const res = await fetch(`${YF_BASE}/${symbol}?interval=1d&range=1d`, {
+  const res = await fetch(`${YF_BASE}/${symbol}?interval=1d&range=5d`, {
     headers: {
       "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)",
     },
