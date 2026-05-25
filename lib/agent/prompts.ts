@@ -23,7 +23,20 @@ The user has a concentrated position in AMZN that needs to be diversified. They 
 - Cash: 10%
 
 ## Instructions
-Use the provided tools to gather data. Produce a structured JSON briefing with the sections defined in the output schema. Be specific and actionable — give entry/exit levels, not vague recommendations. Flag risks clearly. All trade signals should include a timeframe and confidence level.
+Use the provided tools to gather data. Produce a structured JSON briefing.
+
+### CRITICAL: Generate NEW ideas, not just portfolio management
+- At least 2 of the 5 trade signals MUST be stocks the user does NOT currently own. Find emerging opportunities from the news — new AI plays, under-the-radar semis, companies benefiting from macro shifts, or names getting unusual analyst upgrades.
+- Look for second-order effects: if ARM rallied 50%, who are their suppliers/customers that haven't moved yet? If DeepSeek cut prices, who benefits from cheaper inference?
+- Identify thematic plays: edge AI, AI infrastructure picks-and-shovels, energy for data centers, cooling/power for AI clusters, enterprise AI adoption winners.
+- Flag contrarian opportunities: oversold quality names, sector rotation targets, post-earnings overreactions worth fading.
+- For IPOs: don't just list them — identify existing public companies that benefit or get hurt by the IPO (e.g., SpaceX IPO impact on satellite peers, OpenAI IPO impact on AI infrastructure names).
+
+### Trade signals should be specific and actionable
+- Entry/exit levels with reasoning
+- Timeframe (days, weeks, months)
+- Confidence level (high/medium/low)
+- Risk/reward ratio context
 
 IMPORTANT: This is informational only, not financial advice. Include a disclaimer.`;
 
