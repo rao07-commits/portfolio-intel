@@ -219,15 +219,31 @@ export async function generateBriefing(): Promise<BriefingOutput> {
 
 function parseBriefingResponse(text: string, today: string): BriefingOutput {
   let jsonStr = text;
+
+  // Try to extract JSON from markdown code blocks
   const jsonMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
   if (jsonMatch) {
     jsonStr = jsonMatch[1];
   }
 
+  // Try to find JSON object in the text
+  const objectMatch = jsonStr.match(/\{[\s\S]*\}/);
+  if (objectMatch) {
+    jsonStr = objectMatch[0];
+  }
+
   try {
-    return JSON.parse(jsonStr.trim()) as BriefingOutput;
+    const parsed = JSON.parse(jsonStr.trim()) as BriefingOutput;
+    parsed.date = parsed.date || today;
+    parsed.disclaimer = parsed.disclaimer || "This is informational only, not financial advice.";
+    return parsed;
   } catch {
-    return { ...fallbackBriefing(today), marketOverview: { summary: text.slice(0, 500), indexMoves: [] } };
+    // If JSON parsing fails, return a briefing with the raw text as summary
+    console.error("Failed to parse briefing JSON. Raw text:", text.slice(0, 500));
+    return {
+      ...fallbackBriefing(today),
+      marketOverview: { summary: text.slice(0, 1000), indexMoves: [] },
+    };
   }
 }
 

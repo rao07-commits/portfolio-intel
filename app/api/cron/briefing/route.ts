@@ -62,6 +62,7 @@ export async function GET(req: NextRequest) {
       ipoCount: briefing.upcomingIpos.length,
       concentrationLevel: briefing.concentrationRisk.level,
       emailSent,
+      briefingSummary: briefing.marketOverview.summary.slice(0, 300),
       timestamp: new Date().toISOString(),
     });
   } catch (err) {
