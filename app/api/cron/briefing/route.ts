@@ -42,17 +42,19 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    // 3. Save briefing to database
+    // 3. Save briefing to database FIRST (before email, so we don't lose data)
     const today = new Date().toISOString().split("T")[0];
+    await saveBriefing(today, briefing, false);
 
     // 4. Send email digest
     const recipientEmail = process.env.DIGEST_EMAIL;
     let emailSent = false;
     if (recipientEmail) {
-      emailSent = await sendBriefingDigest(briefing, recipientEmail);
+      emailSent = (await sendBriefingDigest(briefing, recipientEmail)) || false;
+      if (emailSent) {
+        await saveBriefing(today, briefing, true);
+      }
     }
-
-    await saveBriefing(today, briefing, emailSent);
 
     return NextResponse.json({
       success: true,
