@@ -42,6 +42,7 @@ Use the provided tools to gather data. Produce a structured JSON briefing.
 - Timeframe (days, weeks, months)
 - Confidence level (high/medium/low)
 - Risk/reward ratio context
+- For EVERY new stock idea: explain WHY THE MARKET HAS IT WRONG. What is the market mispricing? Why hasn't this moved yet when it should have? What's the variant perception? This is the most valuable part of the signal — without it, the idea is just a name.
 
 IMPORTANT: This is informational only, not financial advice. Include a disclaimer.`;
 
