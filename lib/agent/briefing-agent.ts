@@ -157,7 +157,7 @@ export async function generateBriefing(): Promise<BriefingOutput> {
   const messages: Anthropic.MessageParam[] = [
     {
       role: "user",
-      content: `Today is ${today}. Generate my daily market briefing.\n\nUse the available tools to gather data, then produce a comprehensive briefing as JSON matching the BriefingOutput schema with these sections: marketOverview, newsHeadlines, portfolioPerformance, concentrationRisk, allocationRecommendations, sectorRotation, upcomingIpos, tradeSignals, disclaimer.`,
+      content: `Today is ${today}. Generate my daily market briefing.\n\nUse the available tools to gather data, then respond with ONLY a JSON object (no preamble, no code fences, no explanation before or after). The JSON must match this schema: { date, marketOverview: { summary, indexMoves: [{name, change}] }, newsHeadlines: [{title, source, relevance, url?}], portfolioPerformance: { totalValue, dayChange, dayChangePct, topMovers: [{symbol, changePct}] }, concentrationRisk: { level, hhi, topPosition: {symbol, weight}, recommendations: [] }, allocationRecommendations: { amznTrim, semisAction, cashDeployment, sectorShifts: [] }, sectorRotation: { bullish: [], bearish: [], signals: [] }, upcomingIpos: [{name, date, sector, relevance}], tradeSignals: [{symbol, action, reason, entryRange, targetPrice, stopLoss, timeframe, confidence}], disclaimer }. Keep summaries concise. Limit to top 5 news, top 5 IPOs, top 5 trade signals.`,
     },
   ];
 
@@ -167,7 +167,7 @@ export async function generateBriefing(): Promise<BriefingOutput> {
 
     const response = await client.messages.create({
       model: "claude-sonnet-4-6",
-      max_tokens: 8192,
+      max_tokens: 16384,
       system: BRIEFING_SYSTEM_PROMPT,
       tools,
       messages,
