@@ -44,7 +44,11 @@ export async function GET(req: NextRequest) {
 
     // 3. Save briefing to database FIRST (before email, so we don't lose data)
     const today = new Date().toISOString().split("T")[0];
-    await saveBriefing(today, briefing, false);
+    try {
+      await saveBriefing(today, briefing, false);
+    } catch (saveErr) {
+      return NextResponse.json({ error: "Save failed", details: String(saveErr) }, { status: 500 });
+    }
 
     // 4. Send email digest
     const recipientEmail = process.env.DIGEST_EMAIL;
