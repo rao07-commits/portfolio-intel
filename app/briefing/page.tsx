@@ -1,30 +1,5 @@
+import { initDB, getAllBriefings, getLatestBriefing } from "@/lib/db";
 import type { BriefingOutput } from "@/lib/agent/briefing-agent";
-
-async function fetchBriefings() {
-  const baseUrl = process.env.VERCEL_URL
-    ? `https://${process.env.VERCEL_URL}`
-    : "http://localhost:3000";
-  try {
-    const res = await fetch(`${baseUrl}/api/briefings`, { cache: "no-store" });
-    if (!res.ok) return [];
-    return res.json();
-  } catch {
-    return [];
-  }
-}
-
-async function fetchLatest() {
-  const baseUrl = process.env.VERCEL_URL
-    ? `https://${process.env.VERCEL_URL}`
-    : "http://localhost:3000";
-  try {
-    const res = await fetch(`${baseUrl}/api/briefings?latest=true`, { cache: "no-store" });
-    if (!res.ok) return null;
-    return res.json();
-  } catch {
-    return null;
-  }
-}
 
 function signalColor(action: string): string {
   const a = action.toLowerCase();
@@ -40,13 +15,12 @@ function riskColor(level: string): string {
 
 function formatDate(dateStr: string): string {
   const d = new Date(dateStr);
-  return d.toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+  return d.toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric", timeZone: "UTC" });
 }
 
 function BriefingView({ briefing, date }: { briefing: BriefingOutput; date: string }) {
   return (
     <div className="space-y-6">
-      {/* Date Header */}
       <div className="border-b border-slate-700 pb-4">
         <h2 className="text-2xl font-bold text-white">{formatDate(date)}</h2>
         <p className="text-slate-500 text-sm mt-1">Daily Market Briefing</p>
@@ -74,12 +48,12 @@ function BriefingView({ briefing, date }: { briefing: BriefingOutput; date: stri
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-lg font-semibold text-white">Portfolio Risk</h3>
             <span className={`font-bold uppercase text-sm ${riskColor(briefing.concentrationRisk.level)}`}>
-              {briefing.concentrationRisk.level}
+              {String(briefing.concentrationRisk.level).slice(0, 20)}
             </span>
           </div>
           {briefing.concentrationRisk.topPosition?.symbol && (
             <p className="text-slate-400 text-sm mb-2">
-              Top position: <span className="text-white font-semibold">{briefing.concentrationRisk.topPosition.symbol}</span> at {briefing.concentrationRisk.topPosition.weight?.toFixed(1)}% | HHI: {briefing.concentrationRisk.hhi?.toFixed(0)}
+              Top position: <span className="text-white font-semibold">{briefing.concentrationRisk.topPosition.symbol}</span> at {Number(briefing.concentrationRisk.topPosition.weight || 0).toFixed(1)}%
             </p>
           )}
           {briefing.concentrationRisk.recommendations?.length > 0 && (
@@ -213,9 +187,10 @@ function BriefingView({ briefing, date }: { briefing: BriefingOutput; date: stri
 }
 
 export default async function BriefingPage() {
+  await initDB();
   const [briefings, latestRaw] = await Promise.all([
-    fetchBriefings(),
-    fetchLatest(),
+    getAllBriefings(),
+    getLatestBriefing(),
   ]);
 
   const latest = latestRaw?.content_json as BriefingOutput | null;
@@ -235,16 +210,16 @@ export default async function BriefingPage() {
             <div className="lg:col-span-1">
               <h3 className="text-slate-400 text-sm font-medium mb-3">Archive</h3>
               <div className="space-y-1">
-                {briefings.map((b: { date: string; email_sent: boolean }, i: number) => (
+                {briefings.map((b: any, i: number) => (
                   <div
                     key={i}
                     className={`px-3 py-2 rounded-lg text-sm ${
-                      b.date === latestDate
+                      String(b.date) === String(latestDate)
                         ? "bg-blue-500/10 text-blue-400 border border-blue-400/30"
                         : "text-slate-400 hover:bg-slate-800"
                     }`}
                   >
-                    {new Date(b.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                    {new Date(b.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" })}
                     {b.email_sent && <span className="text-green-400 text-xs ml-2">sent</span>}
                   </div>
                 ))}
@@ -253,7 +228,7 @@ export default async function BriefingPage() {
 
             {/* Main briefing content */}
             <div className="lg:col-span-3">
-              <BriefingView briefing={latest} date={latestDate} />
+              <BriefingView briefing={latest} date={String(latestDate)} />
             </div>
           </div>
         ) : (
