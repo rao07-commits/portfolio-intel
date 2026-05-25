@@ -173,21 +173,19 @@ export async function generateBriefing(): Promise<BriefingOutput> {
       messages,
     });
 
-    console.log(`Stop reason: ${response.stop_reason}, content blocks: ${response.content.length}`);
+    const hasToolUse = response.content.some((b) => b.type === "tool_use");
+    const textBlock = response.content.find((b) => b.type === "text");
 
-    // If stop reason is "end_turn", extract the text response
-    if (response.stop_reason === "end_turn") {
-      const textBlock = response.content.find((b) => b.type === "text");
+    // If no tool calls, extract the text response (regardless of stop_reason)
+    if (!hasToolUse) {
       if (textBlock && textBlock.type === "text") {
-        console.log(`Agent produced text response (${textBlock.text.length} chars)`);
         return parseBriefingResponse(textBlock.text, today);
       }
-      break;
+      throw new Error(`No text or tool_use in response. stop_reason=${response.stop_reason}`);
     }
 
-    // If stop reason is "tool_use", process tool calls
-    if (response.stop_reason === "tool_use") {
-      // Add assistant message with tool use blocks
+    // Process tool calls
+    {
       messages.push({ role: "assistant", content: response.content });
 
       // Process each tool call
@@ -214,9 +212,6 @@ export async function generateBriefing(): Promise<BriefingOutput> {
       messages.push({ role: "user", content: toolResults });
       continue;
     }
-
-    console.log(`Unexpected stop reason: ${response.stop_reason}`);
-    break;
   }
 
   throw new Error(`Agent loop completed without valid output. Total messages: ${messages.length}`);
