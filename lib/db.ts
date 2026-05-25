@@ -216,14 +216,14 @@ export async function getActiveSignals() {
 // --- Briefings ---
 
 export async function saveBriefing(date: string, contentJson: object, emailSent: boolean) {
-  await sql`
-    INSERT INTO briefings (date, content_json, email_sent, created_at)
-    VALUES (${date}, ${JSON.stringify(contentJson)}, ${emailSent}, NOW())
-    ON CONFLICT (date) DO UPDATE SET
-      content_json = EXCLUDED.content_json,
-      email_sent = EXCLUDED.email_sent,
-      created_at = NOW()
-  `;
+  const jsonStr = JSON.stringify(contentJson);
+  // Use two separate queries to ensure the update actually happens
+  const existing = await sql`SELECT id FROM briefings WHERE date = ${date}`;
+  if (existing.rows.length > 0) {
+    await sql`UPDATE briefings SET content_json = ${jsonStr}::jsonb, email_sent = ${emailSent}, created_at = NOW() WHERE date = ${date}`;
+  } else {
+    await sql`INSERT INTO briefings (date, content_json, email_sent, created_at) VALUES (${date}, ${jsonStr}::jsonb, ${emailSent}, NOW())`;
+  }
 }
 
 export async function getLatestBriefing() {
