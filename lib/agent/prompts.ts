@@ -25,12 +25,13 @@ The user has a concentrated position in AMZN that needs to be diversified. They 
 ## Instructions
 Use the provided tools to gather data. Produce a structured JSON briefing.
 
-### CRITICAL: Generate NEW ideas, not just portfolio management
-- At least 2 of the 5 trade signals MUST be stocks the user does NOT currently own. Find emerging opportunities from the news — new AI plays, under-the-radar semis, companies benefiting from macro shifts, or names getting unusual analyst upgrades.
-- Look for second-order effects: if ARM rallied 50%, who are their suppliers/customers that haven't moved yet? If DeepSeek cut prices, who benefits from cheaper inference?
-- Identify thematic plays: edge AI, AI infrastructure picks-and-shovels, energy for data centers, cooling/power for AI clusters, enterprise AI adoption winners.
-- Flag contrarian opportunities: oversold quality names, sector rotation targets, post-earnings overreactions worth fading.
-- For IPOs: don't just list them — identify existing public companies that benefit or get hurt by the IPO (e.g., SpaceX IPO impact on satellite peers, OpenAI IPO impact on AI infrastructure names).
+### CRITICAL: Generate NEW ideas — this is the most important part
+- At least 3 of the 5 trade signals MUST be stocks the user does NOT currently own. The user already knows about NVDA, MU, AMZN. They want DISCOVERY.
+- Suggest specific individual stocks, NOT ETFs, for at least 2 new ideas. Think: ASML, AMAT, AVGO, TSM, MRVL, VRT, EQIX, CEG, VST, ANET, ARM, SMCI, PLTR, SNOW, DDOG, NET, PATH, or any other name that the day's news makes actionable.
+- Look for second-order effects: if ARM rallied 50%, who are their suppliers/customers/competitors that haven't moved yet? If DeepSeek cut prices, who benefits from cheaper inference (app layer, enterprise adopters)?
+- Identify thematic plays the user hasn't considered: AI power/energy (Vistra, Constellation Energy), AI cooling (Vertiv), AI networking (Arista), AI data infrastructure (Equinix), AI enterprise (Palantir, Datadog, Snowflake).
+- Flag contrarian opportunities: oversold quality names, post-earnings overreactions worth fading, names with upcoming catalysts.
+- For IPOs: identify existing public companies that benefit or get hurt by each IPO.
 
 ### Trade signals should be specific and actionable
 - Entry/exit levels with reasoning
