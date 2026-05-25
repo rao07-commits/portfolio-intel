@@ -83,7 +83,7 @@ function BriefingView({ briefing, date }: { briefing: BriefingOutput; date: stri
               <li className="text-slate-300"><span className="text-green-400 font-semibold">Cash:</span> {briefing.allocationRecommendations.cashDeployment}</li>
             )}
             {briefing.allocationRecommendations.sectorShifts?.map((s, i) => (
-              <li key={i} className="text-slate-300"><span className="text-purple-400 font-semibold">Rotate:</span> {s}</li>
+              <li key={i} className="text-slate-300"><span className="text-purple-400 font-semibold">Rotate:</span> {typeof s === "string" ? s : JSON.stringify(s)}</li>
             ))}
           </ul>
         </section>
