@@ -100,7 +100,7 @@ export async function sendBriefingDigest(briefing: BriefingOutput, recipientEmai
       <h2 style="color:#f1f5f9;font-size:18px;margin:24px 0 12px;padding-bottom:8px;border-bottom:2px solid #334155;">Portfolio Risk</h2>
       <div style="background:#1e293b;padding:16px;border-radius:8px;border-left:4px solid ${riskColor(briefing.concentrationRisk.level)};">
         <div style="color:#f1f5f9;font-weight:700;">Concentration: <span style="color:${riskColor(briefing.concentrationRisk.level)};text-transform:uppercase;">${briefing.concentrationRisk.level}</span></div>
-        <div style="color:#94a3b8;font-size:13px;margin-top:4px;">HHI: ${briefing.concentrationRisk.hhi.toFixed(0)} &middot; Top: ${briefing.concentrationRisk.topPosition.symbol} at ${briefing.concentrationRisk.topPosition.weight.toFixed(1)}%</div>
+        <div style="color:#94a3b8;font-size:13px;margin-top:4px;">HHI: ${Number(briefing.concentrationRisk.hhi || 0).toFixed(0)} &middot; Top: ${briefing.concentrationRisk.topPosition?.symbol || "N/A"} at ${Number(briefing.concentrationRisk.topPosition?.weight || 0).toFixed(1)}%</div>
         ${briefing.concentrationRisk.recommendations.map((r) => `<div style="color:#cbd5e1;font-size:13px;margin-top:4px;">- ${r}</div>`).join("")}
       </div>
 
