@@ -217,11 +217,12 @@ export async function getActiveSignals() {
 
 export async function saveBriefing(date: string, contentJson: object, emailSent: boolean) {
   await sql`
-    INSERT INTO briefings (date, content_json, email_sent)
-    VALUES (${date}, ${JSON.stringify(contentJson)}, ${emailSent})
+    INSERT INTO briefings (date, content_json, email_sent, created_at)
+    VALUES (${date}, ${JSON.stringify(contentJson)}, ${emailSent}, NOW())
     ON CONFLICT (date) DO UPDATE SET
       content_json = EXCLUDED.content_json,
-      email_sent = EXCLUDED.email_sent
+      email_sent = EXCLUDED.email_sent,
+      created_at = NOW()
   `;
 }
 
