@@ -147,7 +147,12 @@ const tools: Anthropic.Tool[] = [
 
 export async function generateBriefing(): Promise<BriefingOutput> {
   const today = new Date().toISOString().split("T")[0];
-  const client = new Anthropic();
+
+  if (!process.env.ANTHROPIC_API_KEY) {
+    throw new Error("ANTHROPIC_API_KEY not set");
+  }
+
+  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
   const messages: Anthropic.MessageParam[] = [
     {
@@ -158,18 +163,23 @@ export async function generateBriefing(): Promise<BriefingOutput> {
 
   // Agentic loop — let Claude call tools until it produces the final response
   for (let turn = 0; turn < 15; turn++) {
+    console.log(`Briefing agent turn ${turn + 1}...`);
+
     const response = await client.messages.create({
       model: "claude-sonnet-4-6",
-      max_tokens: 4096,
+      max_tokens: 8192,
       system: BRIEFING_SYSTEM_PROMPT,
       tools,
       messages,
     });
 
+    console.log(`Stop reason: ${response.stop_reason}, content blocks: ${response.content.length}`);
+
     // If stop reason is "end_turn", extract the text response
     if (response.stop_reason === "end_turn") {
       const textBlock = response.content.find((b) => b.type === "text");
       if (textBlock && textBlock.type === "text") {
+        console.log(`Agent produced text response (${textBlock.text.length} chars)`);
         return parseBriefingResponse(textBlock.text, today);
       }
       break;
@@ -184,12 +194,15 @@ export async function generateBriefing(): Promise<BriefingOutput> {
       const toolResults: Anthropic.ToolResultBlockParam[] = [];
       for (const block of response.content) {
         if (block.type === "tool_use") {
+          console.log(`Tool call: ${block.name}`);
           const handler = toolHandlers[block.name];
           if (handler) {
             try {
               const result = await handler(block.input as Record<string, unknown>);
+              console.log(`Tool ${block.name} returned ${result.length} chars`);
               toolResults.push({ type: "tool_result", tool_use_id: block.id, content: result });
             } catch (err) {
+              console.error(`Tool ${block.name} failed:`, err);
               toolResults.push({ type: "tool_result", tool_use_id: block.id, content: `Error: ${err}`, is_error: true });
             }
           } else {
@@ -202,11 +215,12 @@ export async function generateBriefing(): Promise<BriefingOutput> {
       continue;
     }
 
+    console.log(`Unexpected stop reason: ${response.stop_reason}`);
     break;
   }
 
-  // Fallback: if we get here without a proper response, return a minimal briefing
-  return fallbackBriefing(today);
+  // Fallback: if we get here without a proper response, throw so we see it
+  throw new Error("Agent did not produce a valid briefing after 15 turns");
 }
 
 function parseBriefingResponse(text: string, today: string): BriefingOutput {
