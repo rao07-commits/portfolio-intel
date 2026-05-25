@@ -48,17 +48,17 @@ export default function ETFsPage() {
           <div className="bg-slate-800 rounded-xl p-4 border border-slate-700">
             <div className="text-slate-500 text-xs uppercase">Best 5Y Return</div>
             <div className="text-white text-lg font-bold">SMH</div>
-            <div className="text-green-400 text-sm">+28.9% annualized</div>
+            <div className="text-green-400 text-sm">+36.5% annualized</div>
           </div>
           <div className="bg-slate-800 rounded-xl p-4 border border-slate-700">
-            <div className="text-slate-500 text-xs uppercase">Cheapest Valuation</div>
-            <div className="text-white text-lg font-bold">EWZ</div>
-            <div className="text-green-400 text-sm">7.2x P/E (Brazil)</div>
+            <div className="text-slate-500 text-xs uppercase">Best 3Y Return</div>
+            <div className="text-white text-lg font-bold">SMH</div>
+            <div className="text-green-400 text-sm">+62.6% annualized</div>
           </div>
           <div className="bg-slate-800 rounded-xl p-4 border border-slate-700">
-            <div className="text-slate-500 text-xs uppercase">Highest Yield</div>
-            <div className="text-white text-lg font-bold">EWZ</div>
-            <div className="text-green-400 text-sm">7.8% dividend yield</div>
+            <div className="text-slate-500 text-xs uppercase">Hottest Commodity</div>
+            <div className="text-white text-lg font-bold">SLV</div>
+            <div className="text-green-400 text-sm">+46.9% 3Y (Silver)</div>
           </div>
         </div>
 
@@ -217,33 +217,33 @@ export default function ETFsPage() {
             <div>
               <h3 className="text-blue-400 font-semibold mb-2">For AI / Semis Exposure</h3>
               <ul className="space-y-1 text-slate-300">
-                <li>SMH (0.35%) — best 5Y return at +28.9% ann., NVDA-heavy</li>
-                <li>EWT (0.59%) — Taiwan = TSMC proxy, cheaper valuation than US semis</li>
-                <li>EWY (0.59%) — South Korea = SK Hynix HBM play, P/E only 10.2x</li>
+                <li>SMH (0.35%) — +62.6% 3Y, +36.5% 5Y annualized. The definitive AI/semis ETF</li>
+                <li>EWT (0.59%) — Taiwan = TSMC proxy, +28.7% 3Y annualized, 16.2x P/E</li>
+                <li>EWY (0.59%) — South Korea = SK Hynix HBM play, +43.8% 3Y run but 14.5x P/E — not as cheap as it was</li>
               </ul>
             </div>
             <div>
               <h3 className="text-blue-400 font-semibold mb-2">For Diversification</h3>
               <ul className="space-y-1 text-slate-300">
-                <li>VXUS (0.07%) — cheapest total international, one-stop diversification</li>
-                <li>VWO (0.08%) — cheapest EM, TSMC + Tencent + Samsung</li>
-                <li>EWG (0.50%) — Germany fiscal stimulus re-rating, SAP is an AI play</li>
+                <li>VXUS (0.07%) — cheapest total international at 0.07%, 14.7% 3Y</li>
+                <li>VWO (0.08%) — cheapest EM, TSMC + Tencent + Samsung, recovering at +13.9% 3Y</li>
+                <li>EWG (0.50%) — Germany fiscal stimulus re-rating, +18.4% YTD, SAP is an AI play</li>
               </ul>
             </div>
             <div>
-              <h3 className="text-blue-400 font-semibold mb-2">Deep Value</h3>
+              <h3 className="text-blue-400 font-semibold mb-2">Commodities on Fire</h3>
               <ul className="space-y-1 text-slate-300">
-                <li>EWZ — Brazil at 7.2x P/E, 7.8% yield, but -4.1% 3Y return</li>
-                <li>FXI — China at 11.5x P/E, beaten down but DeepSeek AI catalyst</li>
-                <li>EWY — Korea at 10.2x P/E, HBM memory supercycle underappreciated</li>
+                <li>SLV — Silver +46.9% 3Y annualized, AI power grid + industrial demand catalyst</li>
+                <li>GLD — Gold +31.5% 3Y annualized, geopolitical + inflation hedge still working</li>
+                <li>IAU vs GLD — identical gold exposure but IAU is 0.25% vs GLD 0.40% — switch saves 15bps</li>
               </ul>
             </div>
             <div>
               <h3 className="text-blue-400 font-semibold mb-2">Avoid / Red Flags</h3>
               <ul className="space-y-1 text-slate-300">
-                <li>ARKK — 0.75% expense, -18.5% 3Y return, poor stock picking track record</li>
-                <li>BOTZ — 0.68% expense for what you can build with NVDA + individual names</li>
-                <li>GLD vs IAU — you hold GLD (0.40%) but IAU is identical at 0.25%</li>
+                <li>ARKK — 0.75% expense, -18.5% 3Y annualized. Paying a premium for destruction</li>
+                <li>KWEB — China internet -17.3% 5Y annualized despite recent bounce. Regulatory risk</li>
+                <li>INDA — India at 22.5x P/E but only +2.1% 5Y annualized. Overvalued for the returns</li>
               </ul>
             </div>
           </div>
