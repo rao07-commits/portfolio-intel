@@ -202,6 +202,17 @@ export default async function BriefingPage() {
         <div className="mb-8">
           <h1 className="text-3xl font-bold">Daily Briefings</h1>
           <p className="text-slate-400 mt-1">AI-generated market intelligence and portfolio analysis</p>
+          {latestRaw && (
+            <div className="mt-3 inline-flex items-center gap-3 bg-slate-800 border border-slate-700 rounded-lg px-4 py-2">
+              <span className="text-blue-400 font-semibold text-sm">
+                {new Date(latestRaw.date).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric", timeZone: "UTC" })}
+              </span>
+              <span className="text-slate-600">|</span>
+              <span className="text-slate-500 text-xs">
+                Generated {new Date(latestRaw.created_at).toLocaleString("en-US", { hour: "numeric", minute: "2-digit", hour12: true, timeZone: "America/Los_Angeles" })} PT
+              </span>
+            </div>
+          )}
         </div>
 
         {latest && latestDate ? (
