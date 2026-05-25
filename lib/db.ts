@@ -217,7 +217,7 @@ export async function getActiveSignals() {
 
 export async function saveBriefing(date: string, contentJson: object, emailSent: boolean) {
   const jsonStr = JSON.stringify(contentJson);
-  await sql`DELETE FROM briefings WHERE date::text LIKE ${date + '%'}`;
+  await sql`DELETE FROM briefings WHERE date = ${date}::date`;
   await sql`INSERT INTO briefings (date, content_json, email_sent, created_at) VALUES (${date}::date, ${jsonStr}, ${emailSent}, NOW())`;
 }
 
