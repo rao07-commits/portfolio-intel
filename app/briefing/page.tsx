@@ -13,19 +13,6 @@ async function fetchBriefings() {
   }
 }
 
-async function fetchBriefing(date: string) {
-  const baseUrl = process.env.VERCEL_URL
-    ? `https://${process.env.VERCEL_URL}`
-    : "http://localhost:3000";
-  try {
-    const res = await fetch(`${baseUrl}/api/briefings?date=${date}`, { cache: "no-store" });
-    if (!res.ok) return null;
-    return res.json();
-  } catch {
-    return null;
-  }
-}
-
 async function fetchLatest() {
   const baseUrl = process.env.VERCEL_URL
     ? `https://${process.env.VERCEL_URL}`
