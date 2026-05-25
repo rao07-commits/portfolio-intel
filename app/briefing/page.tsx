@@ -210,6 +210,7 @@ export default async function BriefingPage() {
             <div className="lg:col-span-1">
               <h3 className="text-slate-400 text-sm font-medium mb-3">Archive</h3>
               <div className="space-y-1">
+                {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                 {briefings.map((b: any, i: number) => (
                   <div
                     key={i}

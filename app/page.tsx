@@ -30,6 +30,7 @@ export default async function HomePage() {
         {portfolio.holdings.length > 0 ? (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <PortfolioSummary portfolio={portfolio} />
+            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
             <TradeSignals signals={signals as any[]} />
           </div>
         ) : (
