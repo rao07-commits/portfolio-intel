@@ -74,13 +74,13 @@ function BriefingView({ briefing, date }: { briefing: BriefingOutput; date: stri
           <h3 className="text-lg font-semibold text-white mb-3">Allocation Actions</h3>
           <ul className="space-y-2 text-sm">
             {briefing.allocationRecommendations.amznTrim && (
-              <li className="text-slate-300"><span className="text-red-400 font-semibold">AMZN:</span> {briefing.allocationRecommendations.amznTrim}</li>
+              <li className="text-slate-300"><span className="text-red-400 font-semibold">AMZN:</span> {typeof briefing.allocationRecommendations.amznTrim === "string" ? briefing.allocationRecommendations.amznTrim : JSON.stringify(briefing.allocationRecommendations.amznTrim)}</li>
             )}
             {briefing.allocationRecommendations.semisAction && (
-              <li className="text-slate-300"><span className="text-blue-400 font-semibold">AI/Semis:</span> {briefing.allocationRecommendations.semisAction}</li>
+              <li className="text-slate-300"><span className="text-blue-400 font-semibold">AI/Semis:</span> {typeof briefing.allocationRecommendations.semisAction === "string" ? briefing.allocationRecommendations.semisAction : JSON.stringify(briefing.allocationRecommendations.semisAction)}</li>
             )}
             {briefing.allocationRecommendations.cashDeployment && (
-              <li className="text-slate-300"><span className="text-green-400 font-semibold">Cash:</span> {briefing.allocationRecommendations.cashDeployment}</li>
+              <li className="text-slate-300"><span className="text-green-400 font-semibold">Cash:</span> {typeof briefing.allocationRecommendations.cashDeployment === "string" ? briefing.allocationRecommendations.cashDeployment : JSON.stringify(briefing.allocationRecommendations.cashDeployment)}</li>
             )}
             {briefing.allocationRecommendations.sectorShifts?.map((s, i) => (
               <li key={i} className="text-slate-300"><span className="text-purple-400 font-semibold">Rotate:</span> {typeof s === "string" ? s : JSON.stringify(s)}</li>
