@@ -121,10 +121,12 @@ function BriefingView({ briefing, date }: { briefing: BriefingOutput; date: stri
                   <span className="ml-auto text-slate-500 text-xs">{s.confidence} confidence</span>
                 </div>
                 <p className="text-slate-400 text-sm mb-2">{s.reason}</p>
-                {(s as any).marketMispricing && (
+                {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                {(s as Record<string, any>).marketMispricing && (
                   <div className="bg-amber-500/5 border border-amber-500/20 rounded-lg p-3 mb-2">
                     <span className="text-amber-400 text-xs font-bold uppercase">Why the market has it wrong: </span>
-                    <span className="text-slate-300 text-sm">{(s as any).marketMispricing}</span>
+                    {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                    <span className="text-slate-300 text-sm">{(s as Record<string, any>).marketMispricing}</span>
                   </div>
                 )}
                 <div className="flex gap-4 text-xs text-slate-500">
