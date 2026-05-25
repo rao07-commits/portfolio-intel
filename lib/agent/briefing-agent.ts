@@ -219,8 +219,7 @@ export async function generateBriefing(): Promise<BriefingOutput> {
     break;
   }
 
-  // Fallback: if we get here without a proper response, throw so we see it
-  throw new Error("Agent did not produce a valid briefing after 15 turns");
+  throw new Error(`Agent loop completed without valid output. Total messages: ${messages.length}`);
 }
 
 function parseBriefingResponse(text: string, today: string): BriefingOutput {

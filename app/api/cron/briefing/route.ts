@@ -16,7 +16,16 @@ export async function GET(req: NextRequest) {
     await initDB();
 
     // 1. Run the Claude agent to generate the briefing
-    const briefing = await generateBriefing();
+    let briefing;
+    try {
+      briefing = await generateBriefing();
+    } catch (agentErr) {
+      return NextResponse.json({
+        error: "Agent failed",
+        details: String(agentErr),
+        stack: agentErr instanceof Error ? agentErr.stack : undefined,
+      }, { status: 500 });
+    }
 
     // 2. Store trade signals in the database
     for (const signal of briefing.tradeSignals) {
