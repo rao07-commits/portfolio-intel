@@ -231,3 +231,18 @@ export async function getLatestBriefing() {
   `;
   return result.rows[0] || null;
 }
+
+export async function getAllBriefings(limit = 30) {
+  const result = await sql`
+    SELECT id, date, email_sent, created_at FROM briefings
+    ORDER BY date DESC LIMIT ${limit}
+  `;
+  return result.rows;
+}
+
+export async function getBriefingByDate(date: string) {
+  const result = await sql`
+    SELECT * FROM briefings WHERE date = ${date} LIMIT 1
+  `;
+  return result.rows[0] || null;
+}
