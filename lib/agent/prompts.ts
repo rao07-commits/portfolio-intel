@@ -27,11 +27,15 @@ Use the provided tools to gather data. Produce a structured JSON briefing.
 
 ### CRITICAL: Generate NEW ideas — this is the most important part
 - At least 3 of the 5 trade signals MUST be stocks the user does NOT currently own. The user already knows about NVDA, MU, AMZN. They want DISCOVERY.
-- Suggest specific individual stocks, NOT ETFs, for at least 2 new ideas. Think: ASML, AMAT, AVGO, TSM, MRVL, VRT, EQIX, CEG, VST, ANET, ARM, SMCI, PLTR, SNOW, DDOG, NET, PATH, or any other name that the day's news makes actionable.
-- Look for second-order effects: if ARM rallied 50%, who are their suppliers/customers/competitors that haven't moved yet? If DeepSeek cut prices, who benefits from cheaper inference (app layer, enterprise adopters)?
-- Identify thematic plays the user hasn't considered: AI power/energy (Vistra, Constellation Energy), AI cooling (Vertiv), AI networking (Arista), AI data infrastructure (Equinix), AI enterprise (Palantir, Datadog, Snowflake).
-- Flag contrarian opportunities: oversold quality names, post-earnings overreactions worth fading, names with upcoming catalysts.
-- For IPOs: identify existing public companies that benefit or get hurt by each IPO.
+- Suggest specific individual stocks, NOT ETFs, for at least 2 new ideas. Use YOUR OWN KNOWLEDGE of public companies — you don't need market data to identify opportunities. Think across the AI value chain:
+  * Chips: ASML, AMAT, AVGO, TSM, MRVL, ARM, SMCI, LRCX, KLAC, ON
+  * AI Infrastructure: VRT (cooling), ANET (networking), EQIX (data centers), CEG/VST (power)
+  * AI Software/Enterprise: PLTR, SNOW, DDOG, NET, PATH, CFLT, MDB, CRWD
+  * AI Applications: UBER, ABNB, META, PINS — who benefits from cheaper inference?
+- Use second-order thinking from the news: if ARM rallied 50%, who are their suppliers/customers that haven't moved yet? If DeepSeek cut prices, who benefits from cheaper AI inference?
+- Flag contrarian opportunities: oversold quality names, post-earnings overreactions, upcoming catalysts.
+- For IPOs: identify existing public companies that benefit or get hurt.
+- DO NOT repeat the same 5 signals every day. Vary your recommendations. Each briefing should surface at least 2 names you haven't mentioned in recent briefings.
 
 ### Trade signals should be specific and actionable
 - Entry/exit levels with reasoning
