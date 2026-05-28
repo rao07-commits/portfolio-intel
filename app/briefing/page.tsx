@@ -1,5 +1,8 @@
-import { initDB, getAllBriefings, getLatestBriefing } from "@/lib/db";
+import Link from "next/link";
+import { initDB, getAllBriefings, getLatestBriefing, getBriefingByDate } from "@/lib/db";
 import type { BriefingOutput } from "@/lib/agent/briefing-agent";
+
+export const dynamic = "force-dynamic";
 
 function signalColor(action: string): string {
   const a = action.toLowerCase();
@@ -16,6 +19,16 @@ function riskColor(level: string): string {
 function formatDate(dateStr: string): string {
   const d = new Date(dateStr);
   return d.toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric", timeZone: "UTC" });
+}
+
+function toDateKey(d: string): string {
+  return new Date(d).toISOString().split("T")[0];
+}
+
+function renderValue(v: unknown): string {
+  if (typeof v === "string") return v;
+  if (typeof v === "object" && v !== null) return JSON.stringify(v);
+  return String(v);
 }
 
 function BriefingView({ briefing, date }: { briefing: BriefingOutput; date: string }) {
@@ -35,7 +48,7 @@ function BriefingView({ briefing, date }: { briefing: BriefingOutput; date: stri
             {briefing.marketOverview.indexMoves.map((m, i) => (
               <div key={i} className="bg-slate-700/50 px-4 py-2 rounded-lg">
                 <span className="text-slate-400 text-xs">{m.name}</span>
-                <span className={`ml-2 font-bold ${m.change?.startsWith("-") ? "text-red-400" : "text-green-400"}`}>{m.change}</span>
+                <span className={`ml-2 font-bold ${String(m.change)?.startsWith("-") ? "text-red-400" : "text-green-400"}`}>{m.change}</span>
               </div>
             ))}
           </div>
@@ -60,7 +73,7 @@ function BriefingView({ briefing, date }: { briefing: BriefingOutput; date: stri
             <ul className="space-y-1 mt-2">
               {briefing.concentrationRisk.recommendations.map((r, i) => (
                 <li key={i} className="text-slate-300 text-sm flex gap-2">
-                  <span className="text-yellow-400">!</span> {r}
+                  <span className="text-yellow-400">!</span> {typeof r === "string" ? r : renderValue(r)}
                 </li>
               ))}
             </ul>
@@ -74,16 +87,16 @@ function BriefingView({ briefing, date }: { briefing: BriefingOutput; date: stri
           <h3 className="text-lg font-semibold text-white mb-3">Allocation Actions</h3>
           <ul className="space-y-2 text-sm">
             {briefing.allocationRecommendations.amznTrim && (
-              <li className="text-slate-300"><span className="text-red-400 font-semibold">AMZN:</span> {typeof briefing.allocationRecommendations.amznTrim === "string" ? briefing.allocationRecommendations.amznTrim : JSON.stringify(briefing.allocationRecommendations.amznTrim)}</li>
+              <li className="text-slate-300"><span className="text-red-400 font-semibold">AMZN:</span> {renderValue(briefing.allocationRecommendations.amznTrim)}</li>
             )}
             {briefing.allocationRecommendations.semisAction && (
-              <li className="text-slate-300"><span className="text-blue-400 font-semibold">AI/Semis:</span> {typeof briefing.allocationRecommendations.semisAction === "string" ? briefing.allocationRecommendations.semisAction : JSON.stringify(briefing.allocationRecommendations.semisAction)}</li>
+              <li className="text-slate-300"><span className="text-blue-400 font-semibold">AI/Semis:</span> {renderValue(briefing.allocationRecommendations.semisAction)}</li>
             )}
             {briefing.allocationRecommendations.cashDeployment && (
-              <li className="text-slate-300"><span className="text-green-400 font-semibold">Cash:</span> {typeof briefing.allocationRecommendations.cashDeployment === "string" ? briefing.allocationRecommendations.cashDeployment : JSON.stringify(briefing.allocationRecommendations.cashDeployment)}</li>
+              <li className="text-slate-300"><span className="text-green-400 font-semibold">Cash:</span> {renderValue(briefing.allocationRecommendations.cashDeployment)}</li>
             )}
             {briefing.allocationRecommendations.sectorShifts?.map((s, i) => (
-              <li key={i} className="text-slate-300"><span className="text-purple-400 font-semibold">Rotate:</span> {typeof s === "string" ? s : JSON.stringify(s)}</li>
+              <li key={i} className="text-slate-300"><span className="text-purple-400 font-semibold">Rotate:</span> {renderValue(s)}</li>
             ))}
           </ul>
         </section>
@@ -149,13 +162,13 @@ function BriefingView({ briefing, date }: { briefing: BriefingOutput; date: stri
             <div>
               <h4 className="text-green-400 font-semibold text-sm mb-2">Bullish</h4>
               {briefing.sectorRotation.bullish?.map((s, i) => (
-                <div key={i} className="text-slate-300 text-sm">+ {s}</div>
+                <div key={i} className="text-slate-300 text-sm mb-1">+ {s}</div>
               ))}
             </div>
             <div>
               <h4 className="text-red-400 font-semibold text-sm mb-2">Bearish</h4>
               {briefing.sectorRotation.bearish?.map((s, i) => (
-                <div key={i} className="text-slate-300 text-sm">- {s}</div>
+                <div key={i} className="text-slate-300 text-sm mb-1">- {s}</div>
               ))}
             </div>
           </div>
@@ -194,15 +207,27 @@ function BriefingView({ briefing, date }: { briefing: BriefingOutput; date: stri
   );
 }
 
-export default async function BriefingPage() {
+export default async function BriefingPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ date?: string }>;
+}) {
   await initDB();
-  const [briefings, latestRaw] = await Promise.all([
-    getAllBriefings(),
-    getLatestBriefing(),
-  ]);
+  const params = await searchParams;
+  const selectedDate = params.date;
 
-  const latest = latestRaw?.content_json as BriefingOutput | null;
-  const latestDate = latestRaw?.date;
+  const briefings = await getAllBriefings();
+
+  let briefingRow;
+  if (selectedDate) {
+    briefingRow = await getBriefingByDate(selectedDate);
+  }
+  if (!briefingRow) {
+    briefingRow = await getLatestBriefing();
+  }
+
+  const briefing = briefingRow?.content_json as BriefingOutput | null;
+  const currentDate = briefingRow?.date ? toDateKey(briefingRow.date) : null;
 
   return (
     <div className="min-h-screen bg-slate-900 text-white">
@@ -210,45 +235,50 @@ export default async function BriefingPage() {
         <div className="mb-8">
           <h1 className="text-3xl font-bold">Daily Briefings</h1>
           <p className="text-slate-400 mt-1">AI-generated market intelligence and portfolio analysis</p>
-          {latestRaw && (
+          {briefingRow && (
             <div className="mt-3 inline-flex items-center gap-3 bg-slate-800 border border-slate-700 rounded-lg px-4 py-2">
               <span className="text-blue-400 font-semibold text-sm">
-                {new Date(latestRaw.date).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric", timeZone: "UTC" })}
+                {formatDate(briefingRow.date)}
               </span>
               <span className="text-slate-600">|</span>
               <span className="text-slate-500 text-xs">
-                Generated {new Date(latestRaw.created_at).toLocaleString("en-US", { hour: "numeric", minute: "2-digit", hour12: true, timeZone: "America/Los_Angeles" })} PT
+                Generated {new Date(briefingRow.created_at).toLocaleString("en-US", { hour: "numeric", minute: "2-digit", hour12: true, timeZone: "America/Los_Angeles" })} PT
               </span>
             </div>
           )}
         </div>
 
-        {latest && latestDate ? (
+        {briefing && currentDate ? (
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
             {/* Briefing list sidebar */}
             <div className="lg:col-span-1">
               <h3 className="text-slate-400 text-sm font-medium mb-3">Archive</h3>
               <div className="space-y-1">
                 {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                {briefings.map((b: any, i: number) => (
-                  <div
-                    key={i}
-                    className={`px-3 py-2 rounded-lg text-sm ${
-                      String(b.date) === String(latestDate)
-                        ? "bg-blue-500/10 text-blue-400 border border-blue-400/30"
-                        : "text-slate-400 hover:bg-slate-800"
-                    }`}
-                  >
-                    {new Date(b.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" })}
-                    {b.email_sent && <span className="text-green-400 text-xs ml-2">sent</span>}
-                  </div>
-                ))}
+                {briefings.map((b: any, i: number) => {
+                  const dateKey = toDateKey(b.date);
+                  const isActive = dateKey === currentDate;
+                  return (
+                    <Link
+                      key={i}
+                      href={`/briefing?date=${dateKey}`}
+                      className={`block px-3 py-2 rounded-lg text-sm transition-colors ${
+                        isActive
+                          ? "bg-blue-500/10 text-blue-400 border border-blue-400/30"
+                          : "text-slate-400 hover:bg-slate-700/50 hover:text-slate-200"
+                      }`}
+                    >
+                      {new Date(b.date).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" })}
+                      {b.email_sent && <span className="text-green-400 text-xs ml-2">sent</span>}
+                    </Link>
+                  );
+                })}
               </div>
             </div>
 
             {/* Main briefing content */}
             <div className="lg:col-span-3">
-              <BriefingView briefing={latest} date={String(latestDate)} />
+              <BriefingView briefing={briefing} date={currentDate} />
             </div>
           </div>
         ) : (
