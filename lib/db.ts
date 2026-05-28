@@ -217,15 +217,9 @@ export async function getActiveSignals() {
 
 export async function saveBriefing(date: string, contentJson: object, emailSent: boolean) {
   const jsonStr = JSON.stringify(contentJson);
-  // Use a single upsert with raw SQL to avoid date type issues
-  await sql`
-    INSERT INTO briefings (date, content_json, email_sent, created_at)
-    VALUES (${date}, ${jsonStr}, ${emailSent}, NOW())
-    ON CONFLICT (date) DO UPDATE SET
-      content_json = ${jsonStr},
-      email_sent = ${emailSent},
-      created_at = NOW()
-  `;
+  // Delete any existing briefing for this date (handles both date string and timestamp formats)
+  await sql`DELETE FROM briefings WHERE date::date = ${date}::date`;
+  await sql`INSERT INTO briefings (date, content_json, email_sent, created_at) VALUES (${date}::date, ${jsonStr}, ${emailSent}, NOW())`;
 }
 
 export async function getLatestBriefing() {
