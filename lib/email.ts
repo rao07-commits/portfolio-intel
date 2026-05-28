@@ -155,7 +155,7 @@ export async function sendBriefingDigest(briefing: BriefingOutput, recipientEmai
     </div>`;
 
   await resend.emails.send({
-    from: "Portfolio Intel <briefing@updates.yourdomain.com>",
+    from: "Portfolio Intel <onboarding@resend.dev>",
     to: recipientEmail,
     subject: `Daily Market Briefing - ${briefing.date}`,
     html,
