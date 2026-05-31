@@ -217,14 +217,14 @@ export async function getActiveSignals() {
 
 export async function saveBriefing(date: string, contentJson: object, emailSent: boolean) {
   const jsonStr = JSON.stringify(contentJson);
-  // Delete any existing briefing for this date (handles both date string and timestamp formats)
-  await sql`DELETE FROM briefings WHERE date::date = ${date}::date`;
-  await sql`INSERT INTO briefings (date, content_json, email_sent, created_at) VALUES (${date}::date, ${jsonStr}, ${emailSent}, NOW())`;
+  // Delete ALL existing briefings for this date using multiple match strategies
+  await sql`DELETE FROM briefings WHERE CAST(date AS text) LIKE ${date + '%'}`;
+  await sql`INSERT INTO briefings (date, content_json, email_sent, created_at) VALUES (${date}, ${jsonStr}, ${emailSent}, NOW())`;
 }
 
 export async function getLatestBriefing() {
   const result = await sql`
-    SELECT * FROM briefings ORDER BY date DESC LIMIT 1
+    SELECT * FROM briefings ORDER BY created_at DESC LIMIT 1
   `;
   return result.rows[0] || null;
 }
@@ -232,14 +232,14 @@ export async function getLatestBriefing() {
 export async function getAllBriefings(limit = 30) {
   const result = await sql`
     SELECT id, date, email_sent, created_at FROM briefings
-    ORDER BY date DESC LIMIT ${limit}
+    ORDER BY created_at DESC LIMIT ${limit}
   `;
   return result.rows;
 }
 
 export async function getBriefingByDate(date: string) {
   const result = await sql`
-    SELECT * FROM briefings WHERE date = ${date} LIMIT 1
+    SELECT * FROM briefings WHERE CAST(date AS text) LIKE ${date + '%'} LIMIT 1
   `;
   return result.rows[0] || null;
 }
