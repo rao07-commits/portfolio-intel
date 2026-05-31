@@ -49,7 +49,7 @@ export default function AIAdoptersPage() {
         <div className="mb-8">
           <h1 className="text-3xl font-bold">AI Margin Expansion Plays</h1>
           <p className="text-slate-400 mt-1">
-            Non-tech S&P 500 companies embedding AI into operations — the market prices them as traditional businesses, but AI is structurally changing their cost structures
+            Non-tech S&P 500 companies with management teams that have a proven track record of technology adoption. These leaders have been there, done that — driving digital transformation across previous tech waves, giving high confidence they will execute on AI.
           </p>
         </div>
 
@@ -207,6 +207,12 @@ export default function AIAdoptersPage() {
                         </div>
                       </div>
 
+                      {/* Management Track Record */}
+                      <div className="mt-3 bg-slate-700/20 border border-slate-600/30 rounded-lg p-4">
+                        <span className="text-cyan-400 text-xs font-bold uppercase">Management Tech Track Record</span>
+                        <p className="text-slate-300 text-sm mt-1 leading-relaxed">{company.managementEdge}</p>
+                      </div>
+
                       {/* Why Market Has It Wrong */}
                       <div className="mt-3 bg-amber-500/5 border border-amber-500/20 rounded-lg p-4">
                         <span className="text-amber-400 text-xs font-bold uppercase">Why the market has it wrong</span>
@@ -225,12 +231,18 @@ export default function AIAdoptersPage() {
           <h2 className="text-lg font-semibold text-white mb-3">Screening Methodology</h2>
           <div className="text-sm text-slate-300 space-y-2">
             <p>These are <strong>non-tech S&P 500 companies</strong> where AI adoption is a margin expansion catalyst, not a product. The market prices these as traditional businesses in their sectors, missing the structural cost reduction from AI.</p>
-            <p><strong>What to look for in earnings:</strong></p>
+            <p><strong>Selection criteria:</strong></p>
+            <ul className="list-disc pl-5 space-y-1 text-slate-400">
+              <li><strong>Management track record:</strong> CEO/leadership has adopted previous tech waves (cloud, mobile, automation) — not first-time tech adopters</li>
+              <li><strong>Not commodity-correlated:</strong> No energy/oil companies where commodity prices dominate the stock regardless of AI</li>
+              <li><strong>Visible in financials:</strong> AI cost savings showing up (or will within 2-4 quarters) in margin expansion, headcount leverage, or new revenue streams</li>
+              <li><strong>Structural moat:</strong> AI adoption creates a data or scale advantage competitors cannot easily replicate</li>
+            </ul>
+            <p className="mt-3"><strong>What to look for in earnings:</strong></p>
             <ul className="list-disc pl-5 space-y-1 text-slate-400">
               <li>Operating margin expanding faster than revenue growth — sign of AI cost leverage</li>
               <li>Headcount flat/declining while revenue grows — AI replacing manual processes</li>
-              <li>Mentions of &ldquo;automation,&rdquo; &ldquo;AI,&rdquo; &ldquo;digital&rdquo; increasing in earnings calls</li>
-              <li>Capex shifting from physical to digital/software — AI infrastructure investment</li>
+              <li>CEO/CFO using specific AI metrics on earnings calls (transactions automated, cost per interaction, etc.)</li>
               <li>New high-margin revenue streams (data, ads, SaaS) enabled by AI</li>
             </ul>
             <p className="text-slate-500 italic mt-3">This is informational only, not financial advice. AI adoption timelines and margin impacts are estimates based on company disclosures and industry analysis.</p>
