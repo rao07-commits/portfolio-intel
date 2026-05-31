@@ -84,12 +84,12 @@ export default function AIAdoptersPage() {
             <div className="bg-purple-500/5 border border-purple-500/20 rounded-lg p-3">
               <span className="text-purple-400 font-bold">Mega ($200B+)</span>
               <p className="text-slate-400 mt-1">3-5% position. Low volatility, high liquidity. Core holdings.</p>
-              <p className="text-slate-500 mt-1">UNH, JPM, WMT, TMUS, PEP</p>
+              <p className="text-slate-500 mt-1">UNH, JPM, WMT, TMUS</p>
             </div>
             <div className="bg-blue-500/5 border border-blue-500/20 rounded-lg p-3">
               <span className="text-blue-400 font-bold">Large ($50-200B)</span>
               <p className="text-slate-400 mt-1">2-4% position. Moderate vol, good liquidity.</p>
-              <p className="text-slate-500 mt-1">WM, HCA, SCHW, CAT, DE, PGR, ORLY</p>
+              <p className="text-slate-500 mt-1">WM, HCA, SCHW, CAT, DE, PGR</p>
             </div>
             <div className="bg-teal-500/5 border border-teal-500/20 rounded-lg p-3">
               <span className="text-teal-400 font-bold">Mid ($10-50B)</span>
