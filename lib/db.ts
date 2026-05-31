@@ -217,10 +217,11 @@ export async function getActiveSignals() {
 
 export async function saveBriefing(date: string, contentJson: object, emailSent: boolean) {
   const jsonStr = JSON.stringify(contentJson);
-  // Drop the unique constraint if it exists, then delete and insert
-  await sql`ALTER TABLE briefings DROP CONSTRAINT IF EXISTS briefings_date_key`;
-  await sql`DELETE FROM briefings WHERE CAST(date AS text) LIKE ${date + '%'}`;
-  await sql`INSERT INTO briefings (date, content_json, email_sent, created_at) VALUES (${date}, ${jsonStr}, ${emailSent}, NOW())`;
+  // Delete any existing briefings for this date — match both '2026-05-30' and '2026-05-30 00:00:00' formats
+  const datePrefix = date.slice(0, 10);
+  await sql`DELETE FROM briefings WHERE CAST(date AS text) LIKE ${datePrefix + '%'}`;
+  await sql`DELETE FROM briefings WHERE CAST(date AS text) = ${datePrefix}`;
+  await sql`INSERT INTO briefings (date, content_json, email_sent, created_at) VALUES (${datePrefix}, ${jsonStr}, ${emailSent}, NOW())`;
 }
 
 export async function getLatestBriefing() {
