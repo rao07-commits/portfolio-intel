@@ -217,7 +217,8 @@ export async function getActiveSignals() {
 
 export async function saveBriefing(date: string, contentJson: object, emailSent: boolean) {
   const jsonStr = JSON.stringify(contentJson);
-  // Delete ALL existing briefings for this date using multiple match strategies
+  // Drop the unique constraint if it exists, then delete and insert
+  await sql`ALTER TABLE briefings DROP CONSTRAINT IF EXISTS briefings_date_key`;
   await sql`DELETE FROM briefings WHERE CAST(date AS text) LIKE ${date + '%'}`;
   await sql`INSERT INTO briefings (date, content_json, email_sent, created_at) VALUES (${date}, ${jsonStr}, ${emailSent}, NOW())`;
 }
