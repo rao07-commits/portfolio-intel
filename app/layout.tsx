@@ -36,6 +36,7 @@ export default function RootLayout({
               <Link href="/" className="text-slate-400 hover:text-white transition-colors">Overview</Link>
               <Link href="/dashboard" className="text-slate-400 hover:text-white transition-colors">Macro</Link>
               <Link href="/allocation" className="text-slate-400 hover:text-white transition-colors">Allocation</Link>
+              <Link href="/ai-adopters" className="text-slate-400 hover:text-white transition-colors">AI Adopters</Link>
               <Link href="/etfs" className="text-slate-400 hover:text-white transition-colors">ETFs</Link>
               <Link href="/briefing" className="text-slate-400 hover:text-white transition-colors">Briefings</Link>
             </div>
