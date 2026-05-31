@@ -17,6 +17,30 @@ function riskColor(level: string): string {
   return map[level] || "#64748b";
 }
 
+function renderValue(v: unknown): string {
+  if (typeof v === "string") return v;
+  if (typeof v === "object" && v !== null) {
+    const obj = v as Record<string, unknown>;
+    const parts: string[] = [];
+    if (obj.action) parts.push(String(obj.action));
+    if (obj.shift) parts.push(String(obj.shift));
+    if (obj.sector) parts.push(`[${obj.sector}]`);
+    if (obj.detail) parts.push(String(obj.detail));
+    if (obj.rationale) parts.push(String(obj.rationale));
+    if (parts.length > 0) return parts.join(" — ");
+    return Object.entries(obj)
+      .filter(([, val]) => val !== null && val !== undefined)
+      .map(([key, val]) => `${key}: ${val}`)
+      .join(". ");
+  }
+  return String(v);
+}
+
+function safe(v: unknown): string {
+  if (v === null || v === undefined) return "";
+  return String(v);
+}
+
 export async function sendBriefingDigest(briefing: BriefingOutput, recipientEmail: string) {
   const resend = getResend();
   if (!resend) {
@@ -50,13 +74,13 @@ export async function sendBriefingDigest(briefing: BriefingOutput, recipientEmai
     .join("");
 
   const allocationItems = [
-    briefing.allocationRecommendations.amznTrim,
-    briefing.allocationRecommendations.semisAction,
-    briefing.allocationRecommendations.cashDeployment,
-    ...briefing.allocationRecommendations.sectorShifts,
+    briefing.allocationRecommendations?.amznTrim,
+    briefing.allocationRecommendations?.semisAction,
+    briefing.allocationRecommendations?.cashDeployment,
+    ...(briefing.allocationRecommendations?.sectorShifts || []),
   ]
     .filter(Boolean)
-    .map((a) => `<li style="color:#cbd5e1;margin-bottom:6px;font-size:13px;">${a}</li>`)
+    .map((a) => `<li style="color:#cbd5e1;margin-bottom:6px;font-size:13px;">${renderValue(a)}</li>`)
     .join("");
 
   const ipoRows = briefing.upcomingIpos
@@ -98,10 +122,10 @@ export async function sendBriefingDigest(briefing: BriefingOutput, recipientEmai
 
       <!-- Concentration Risk -->
       <h2 style="color:#f1f5f9;font-size:18px;margin:24px 0 12px;padding-bottom:8px;border-bottom:2px solid #334155;">Portfolio Risk</h2>
-      <div style="background:#1e293b;padding:16px;border-radius:8px;border-left:4px solid ${riskColor(briefing.concentrationRisk.level)};">
-        <div style="color:#f1f5f9;font-weight:700;">Concentration: <span style="color:${riskColor(briefing.concentrationRisk.level)};text-transform:uppercase;">${briefing.concentrationRisk.level}</span></div>
-        <div style="color:#94a3b8;font-size:13px;margin-top:4px;">HHI: ${Number(briefing.concentrationRisk.hhi || 0).toFixed(0)} &middot; Top: ${briefing.concentrationRisk.topPosition?.symbol || "N/A"} at ${Number(briefing.concentrationRisk.topPosition?.weight || 0).toFixed(1)}%</div>
-        ${briefing.concentrationRisk.recommendations.map((r) => `<div style="color:#cbd5e1;font-size:13px;margin-top:4px;">- ${r}</div>`).join("")}
+      <div style="background:#1e293b;padding:16px;border-radius:8px;border-left:4px solid ${riskColor(safe(briefing.concentrationRisk?.level))};">
+        <div style="color:#f1f5f9;font-weight:700;">Concentration: <span style="color:${riskColor(safe(briefing.concentrationRisk?.level))};text-transform:uppercase;">${safe(briefing.concentrationRisk?.level).slice(0, 30)}</span></div>
+        <div style="color:#94a3b8;font-size:13px;margin-top:4px;">HHI: ${Number(briefing.concentrationRisk?.hhi || 0).toFixed(0)} &middot; Top: ${safe(briefing.concentrationRisk?.topPosition?.symbol) || "N/A"} at ${Number(briefing.concentrationRisk?.topPosition?.weight || 0).toFixed(1)}%</div>
+        ${(briefing.concentrationRisk?.recommendations || []).map((r) => `<div style="color:#cbd5e1;font-size:13px;margin-top:4px;">- ${renderValue(r)}</div>`).join("")}
       </div>
 
       <!-- Allocation Recommendations -->
@@ -133,19 +157,19 @@ export async function sendBriefingDigest(briefing: BriefingOutput, recipientEmai
       ` : ""}
 
       <!-- Sector Rotation -->
-      ${briefing.sectorRotation.signals.length > 0 ? `
+      ${(briefing.sectorRotation?.signals?.length || 0) > 0 ? `
         <h2 style="color:#f1f5f9;font-size:18px;margin:24px 0 12px;padding-bottom:8px;border-bottom:2px solid #334155;">Sector Rotation</h2>
         <div style="display:flex;gap:16px;margin-bottom:12px;">
           <div style="flex:1;background:#1e293b;padding:12px;border-radius:8px;">
             <div style="color:#22c55e;font-weight:700;font-size:13px;margin-bottom:6px;">BULLISH</div>
-            ${briefing.sectorRotation.bullish.map((s) => `<div style="color:#cbd5e1;font-size:13px;">+ ${s}</div>`).join("")}
+            ${(briefing.sectorRotation?.bullish || []).map((s) => `<div style="color:#cbd5e1;font-size:13px;">+ ${s}</div>`).join("")}
           </div>
           <div style="flex:1;background:#1e293b;padding:12px;border-radius:8px;">
             <div style="color:#ef4444;font-weight:700;font-size:13px;margin-bottom:6px;">BEARISH</div>
-            ${briefing.sectorRotation.bearish.map((s) => `<div style="color:#cbd5e1;font-size:13px;">- ${s}</div>`).join("")}
+            ${(briefing.sectorRotation?.bearish || []).map((s) => `<div style="color:#cbd5e1;font-size:13px;">- ${s}</div>`).join("")}
           </div>
         </div>
-        ${briefing.sectorRotation.signals.map((s) => `<p style="color:#94a3b8;font-size:13px;margin:4px 0;">${s}</p>`).join("")}
+        ${(briefing.sectorRotation?.signals || []).map((s) => `<p style="color:#94a3b8;font-size:13px;margin:4px 0;">${s}</p>`).join("")}
       ` : ""}
 
       <!-- Disclaimer -->
