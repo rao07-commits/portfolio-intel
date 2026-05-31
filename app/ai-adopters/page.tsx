@@ -160,7 +160,7 @@ export default function AIAdoptersPage() {
             <ul className="list-disc pl-5 space-y-1 text-slate-400">
               <li>Operating margin expanding faster than revenue growth — sign of AI cost leverage</li>
               <li>Headcount flat/declining while revenue grows — AI replacing manual processes</li>
-              <li>Mentions of "automation," "AI," "digital" increasing in earnings calls</li>
+              <li>Mentions of &ldquo;automation,&rdquo; &ldquo;AI,&rdquo; &ldquo;digital&rdquo; increasing in earnings calls</li>
               <li>Capex shifting from physical to digital/software — AI infrastructure investment</li>
               <li>New high-margin revenue streams (data, ads, SaaS) enabled by AI</li>
             </ul>
