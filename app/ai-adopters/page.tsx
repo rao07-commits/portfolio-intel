@@ -77,6 +77,33 @@ export default function AIAdoptersPage() {
           </div>
         </div>
 
+        {/* Position Sizing Guide */}
+        <div className="bg-slate-800 rounded-xl p-5 border border-slate-700 mb-6">
+          <h3 className="text-white font-semibold text-sm mb-3">Position Sizing Guide by Market Cap</h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+            <div className="bg-purple-500/5 border border-purple-500/20 rounded-lg p-3">
+              <span className="text-purple-400 font-bold">Mega ($200B+)</span>
+              <p className="text-slate-400 mt-1">3-5% position. Low volatility, high liquidity. Core holdings.</p>
+              <p className="text-slate-500 mt-1">UNH, JPM, WMT, TMUS, PEP</p>
+            </div>
+            <div className="bg-blue-500/5 border border-blue-500/20 rounded-lg p-3">
+              <span className="text-blue-400 font-bold">Large ($50-200B)</span>
+              <p className="text-slate-400 mt-1">2-4% position. Moderate vol, good liquidity.</p>
+              <p className="text-slate-500 mt-1">WM, HCA, SCHW, CAT, DE, PGR, ORLY</p>
+            </div>
+            <div className="bg-teal-500/5 border border-teal-500/20 rounded-lg p-3">
+              <span className="text-teal-400 font-bold">Mid ($10-50B)</span>
+              <p className="text-slate-400 mt-1">1-2% position. Higher vol, less liquidity. Satellite positions.</p>
+              <p className="text-slate-500 mt-1">CHRW</p>
+            </div>
+            <div className="bg-slate-500/5 border border-slate-500/20 rounded-lg p-3">
+              <span className="text-slate-400 font-bold">Small (&lt;$10B)</span>
+              <p className="text-slate-400 mt-1">0.5-1% position. High vol, speculative. Size for risk.</p>
+              <p className="text-slate-500 mt-1">Future Russell 2000 additions</p>
+            </div>
+          </div>
+        </div>
+
         {/* Maturity Legend */}
         <div className="flex gap-4 mb-6 text-xs">
           {Object.entries(MATURITY_LABELS).map(([key, { label, color }]) => (
@@ -99,13 +126,55 @@ export default function AIAdoptersPage() {
                         <div className="flex items-center gap-3">
                           <span className="text-white text-xl font-bold">{company.symbol}</span>
                           <span className="text-slate-400 text-sm">{company.name}</span>
-                          <span className="text-slate-600 text-xs">{company.marketCap}</span>
+                          <span className={`text-xs font-semibold px-2 py-0.5 rounded ${
+                            company.sizeCategory === "mega" ? "bg-purple-500/10 text-purple-400" :
+                            company.sizeCategory === "large" ? "bg-blue-500/10 text-blue-400" :
+                            company.sizeCategory === "mid" ? "bg-teal-500/10 text-teal-400" :
+                            "bg-slate-500/10 text-slate-400"
+                          }`}>
+                            {company.marketCap}
+                          </span>
                         </div>
                         <div className="flex items-center gap-2">
                           <span className={`px-2 py-0.5 rounded-full text-xs font-semibold border ${maturity.color}`}>
                             {maturity.label}
                           </span>
-                          <span className="text-slate-600 text-xs">{company.index}</span>
+                        </div>
+                      </div>
+
+                      {/* Valuation Row */}
+                      <div className="grid grid-cols-3 md:grid-cols-6 gap-2 mb-3">
+                        <div className="bg-slate-700/40 rounded-lg px-3 py-2">
+                          <div className="text-slate-500 text-[10px] uppercase">Price</div>
+                          <div className="text-white font-bold">${company.price.toFixed(0)}</div>
+                        </div>
+                        <div className="bg-slate-700/40 rounded-lg px-3 py-2">
+                          <div className="text-slate-500 text-[10px] uppercase">P/E</div>
+                          <div className={`font-bold ${(company.peRatio || 99) < 18 ? "text-green-400" : (company.peRatio || 99) < 28 ? "text-slate-300" : "text-yellow-400"}`}>
+                            {company.peRatio?.toFixed(1) || "—"}x
+                          </div>
+                        </div>
+                        <div className="bg-slate-700/40 rounded-lg px-3 py-2">
+                          <div className="text-slate-500 text-[10px] uppercase">Fwd P/E</div>
+                          <div className={`font-bold ${(company.fwdPE || 99) < 16 ? "text-green-400" : (company.fwdPE || 99) < 25 ? "text-slate-300" : "text-yellow-400"}`}>
+                            {company.fwdPE?.toFixed(1) || "—"}x
+                          </div>
+                        </div>
+                        <div className="bg-slate-700/40 rounded-lg px-3 py-2">
+                          <div className="text-slate-500 text-[10px] uppercase">EV/EBITDA</div>
+                          <div className="text-slate-300 font-bold">{company.evEbitda?.toFixed(1) || "—"}x</div>
+                        </div>
+                        <div className="bg-slate-700/40 rounded-lg px-3 py-2">
+                          <div className="text-slate-500 text-[10px] uppercase">1Y Return</div>
+                          <div className={`font-bold ${company.return1Y > 0 ? "text-green-400" : "text-red-400"}`}>
+                            {company.return1Y > 0 ? "+" : ""}{company.return1Y}%
+                          </div>
+                        </div>
+                        <div className="bg-slate-700/40 rounded-lg px-3 py-2">
+                          <div className="text-slate-500 text-[10px] uppercase">From 52W High</div>
+                          <div className={`font-bold ${company.fromHigh52 > -10 ? "text-slate-300" : company.fromHigh52 > -25 ? "text-yellow-400" : "text-red-400"}`}>
+                            {company.fromHigh52}%
+                          </div>
                         </div>
                       </div>
 

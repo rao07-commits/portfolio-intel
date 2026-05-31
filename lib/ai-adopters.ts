@@ -3,23 +3,33 @@ export interface AIAdopter {
   name: string;
   sector: string;
   marketCap: string;
+  marketCapNum: number; // in billions, for sorting
   index: "S&P 500" | "Russell 2000" | "Both";
+  price: number; // approximate current price
+  peRatio: number | null; // trailing P/E
+  fwdPE: number | null; // forward P/E
+  evEbitda: number | null; // EV/EBITDA
+  return1Y: number; // 1-year return %
+  return5Y: number; // 5-year annualized return %
+  fromHigh52: number; // % from 52-week high (negative)
+  sizeCategory: "mega" | "large" | "mid" | "small"; // for position sizing guidance
   aiUseCase: string;
-  aiMaturity: "early" | "scaling" | "embedded"; // how far along they are
-  marginImpact: string; // expected margin expansion driver
+  aiMaturity: "early" | "scaling" | "embedded";
+  marginImpact: string;
   currentMargin: number; // operating margin %
-  marginTarget: string; // where AI could take margins
-  aiInvestment: string; // what they're spending/doing
-  catalyst: string; // near-term catalyst for re-rating
+  marginTarget: string;
+  aiInvestment: string;
+  catalyst: string;
   risk: string;
-  thesis: string; // why the market has it wrong
+  thesis: string;
 }
 
 export const AI_ADOPTERS: AIAdopter[] = [
   // --- Logistics & Supply Chain ---
   {
     symbol: "CHRW", name: "C.H. Robinson", sector: "Industrials / Logistics",
-    marketCap: "$14B", index: "S&P 500",
+    marketCap: "$14B", marketCapNum: 14, index: "S&P 500",
+    price: 178.65, peRatio: 32.5, fwdPE: 24.1, evEbitda: 18.2, return1Y: 86, return5Y: 13, fromHigh52: -11, sizeCategory: "mid",
     aiUseCase: "AI-powered freight matching, route optimization, and demand forecasting. Their Navisphere platform uses ML to match shippers with carriers, reducing empty miles and improving pricing.",
     aiMaturity: "scaling",
     marginImpact: "Automating broker functions that currently require human intermediaries. Each 1% efficiency gain in matching = ~$50M in margin improvement.",
@@ -32,7 +42,8 @@ export const AI_ADOPTERS: AIAdopter[] = [
   },
   {
     symbol: "WM", name: "Waste Management", sector: "Industrials / Waste",
-    marketCap: "$85B", index: "S&P 500",
+    marketCap: "$85B", marketCapNum: 85, index: "S&P 500",
+    price: 211.46, peRatio: 30.2, fwdPE: 27.5, evEbitda: 16.8, return1Y: -11, return5Y: 9, fromHigh52: -14, sizeCategory: "large",
     aiUseCase: "AI-optimized route planning for collection trucks, computer vision for sorting recyclables, predictive maintenance on fleet. Smart bins with fill-level sensors.",
     aiMaturity: "scaling",
     marginImpact: "Route optimization alone saves 10-15% on fuel and labor. AI sorting increases recycling yield by 20-30%, turning waste streams into revenue.",
@@ -47,7 +58,8 @@ export const AI_ADOPTERS: AIAdopter[] = [
   // --- Healthcare ---
   {
     symbol: "HCA", name: "HCA Healthcare", sector: "Healthcare / Hospitals",
-    marketCap: "$95B", index: "S&P 500",
+    marketCap: "$95B", marketCapNum: 95, index: "S&P 500",
+    price: 378.54, peRatio: 16.8, fwdPE: 14.5, evEbitda: 10.2, return1Y: 0, return5Y: 12, fromHigh52: -31, sizeCategory: "large",
     aiUseCase: "Clinical AI for early disease detection, AI-assisted radiology, predictive staffing models, revenue cycle management automation. Using NLP to auto-code medical records for billing.",
     aiMaturity: "scaling",
     marginImpact: "Revenue cycle AI reduces claim denials by 15-20% (~$500M+ revenue recovery). Predictive staffing cuts overtime by 10%.",
@@ -60,7 +72,8 @@ export const AI_ADOPTERS: AIAdopter[] = [
   },
   {
     symbol: "UNH", name: "UnitedHealth Group", sector: "Healthcare / Insurance",
-    marketCap: "$420B", index: "S&P 500",
+    marketCap: "$420B", marketCapNum: 420, index: "S&P 500",
+    price: 380.31, peRatio: 17.5, fwdPE: 15.2, evEbitda: 13.1, return1Y: 28, return5Y: -1, fromHigh52: -5, sizeCategory: "mega",
     aiUseCase: "AI claims processing, fraud detection, member health prediction, prior authorization automation via Optum. Using LLMs for clinical documentation and care management.",
     aiMaturity: "embedded",
     marginImpact: "Prior auth automation alone saves $2B+ annually across the system. Fraud detection AI prevents $1B+ in fraudulent claims.",
@@ -75,7 +88,8 @@ export const AI_ADOPTERS: AIAdopter[] = [
   // --- Financial Services ---
   {
     symbol: "JPM", name: "JPMorgan Chase", sector: "Financials / Banking",
-    marketCap: "$680B", index: "S&P 500",
+    marketCap: "$680B", marketCapNum: 680, index: "S&P 500",
+    price: 299.31, peRatio: 14.2, fwdPE: 13.8, evEbitda: null, return1Y: 13, return5Y: 13, fromHigh52: -11, sizeCategory: "mega",
     aiUseCase: "LLM-powered research analysis (IndexGPT), AI fraud detection, algorithmic trading optimization, AI-assisted lending decisions, contract analysis with NLP.",
     aiMaturity: "embedded",
     marginImpact: "AI fraud detection saves $300M+/year. AI-assisted trading generates incremental alpha. Contract analysis automation reduces legal costs by 30%.",
@@ -88,7 +102,8 @@ export const AI_ADOPTERS: AIAdopter[] = [
   },
   {
     symbol: "SCHW", name: "Charles Schwab", sector: "Financials / Brokerage",
-    marketCap: "$135B", index: "S&P 500",
+    marketCap: "$135B", marketCapNum: 135, index: "S&P 500",
+    price: 87.35, peRatio: 25.8, fwdPE: 19.2, evEbitda: null, return1Y: 0, return5Y: 3, fromHigh52: -19, sizeCategory: "large",
     aiUseCase: "AI-powered financial planning (Schwab Intelligent Portfolios), conversational AI for client service, AI-driven tax-loss harvesting, predictive client retention models.",
     aiMaturity: "scaling",
     marginImpact: "Each client interaction automated by AI saves $5-8. With 35M+ accounts, even 20% automation = $350M+ annual savings.",
@@ -103,7 +118,8 @@ export const AI_ADOPTERS: AIAdopter[] = [
   // --- Retail & Consumer ---
   {
     symbol: "WMT", name: "Walmart", sector: "Consumer Staples / Retail",
-    marketCap: "$600B", index: "S&P 500",
+    marketCap: "$600B", marketCapNum: 600, index: "S&P 500",
+    price: 115.75, peRatio: 38.5, fwdPE: 33.2, evEbitda: 18.5, return1Y: 19, return5Y: 20, fromHigh52: -14, sizeCategory: "mega",
     aiUseCase: "AI demand forecasting, automated inventory management, computer vision for checkout-free stores, AI-powered ad platform (Walmart Connect), drone delivery optimization.",
     aiMaturity: "scaling",
     marginImpact: "AI inventory optimization reduces shrinkage by 15-20%. Walmart Connect (AI-targeted ads) is a 75%+ margin business growing 30%+ YoY.",
@@ -116,7 +132,8 @@ export const AI_ADOPTERS: AIAdopter[] = [
   },
   {
     symbol: "ORLY", name: "O'Reilly Automotive", sector: "Consumer Discretionary / Auto Parts",
-    marketCap: "$70B", index: "S&P 500",
+    marketCap: "$70B", marketCapNum: 70, index: "S&P 500",
+    price: 86.88, peRatio: 28.5, fwdPE: 25.1, evEbitda: 19.2, return1Y: -4, return5Y: 19, fromHigh52: -19, sizeCategory: "large",
     aiUseCase: "AI-powered parts lookup and vehicle diagnostics, predictive inventory stocking per store based on local vehicle fleet age data, AI-optimized pricing and promotions.",
     aiMaturity: "early",
     marginImpact: "Predictive stocking reduces excess inventory by 10-15% while improving in-stock rates. AI diagnostics increase average ticket by guiding customers to the right parts.",
@@ -131,7 +148,8 @@ export const AI_ADOPTERS: AIAdopter[] = [
   // --- Industrials & Manufacturing ---
   {
     symbol: "CAT", name: "Caterpillar", sector: "Industrials / Heavy Equipment",
-    marketCap: "$180B", index: "S&P 500",
+    marketCap: "$180B", marketCapNum: 180, index: "S&P 500",
+    price: 875.87, peRatio: 22.1, fwdPE: 19.8, evEbitda: 15.5, return1Y: 149, return5Y: 29, fromHigh52: -6, sizeCategory: "large",
     aiUseCase: "Autonomous mining trucks and dozers, AI predictive maintenance for heavy equipment fleet, digital twins for construction site optimization, AI-powered parts demand forecasting.",
     aiMaturity: "scaling",
     marginImpact: "Autonomous mining reduces operator costs by 15-20%. Predictive maintenance extends equipment life 25% and generates recurring service revenue.",
@@ -144,7 +162,8 @@ export const AI_ADOPTERS: AIAdopter[] = [
   },
   {
     symbol: "DE", name: "Deere & Company", sector: "Industrials / Agriculture",
-    marketCap: "$120B", index: "S&P 500",
+    marketCap: "$120B", marketCapNum: 120, index: "S&P 500",
+    price: 542.18, peRatio: 20.5, fwdPE: 18.2, evEbitda: 14.1, return1Y: 8, return5Y: 8, fromHigh52: -18, sizeCategory: "large",
     aiUseCase: "See & Spray technology (AI-powered precision weed detection reduces herbicide use 77%), autonomous tractors, AI crop yield prediction, precision agriculture data platform.",
     aiMaturity: "embedded",
     marginImpact: "Precision agriculture commands 15-20% price premium over standard equipment. Recurring SaaS revenue from data platform subscriptions.",
@@ -159,7 +178,8 @@ export const AI_ADOPTERS: AIAdopter[] = [
   // --- Energy & Utilities ---
   {
     symbol: "SLB", name: "SLB (Schlumberger)", sector: "Energy / Oilfield Services",
-    marketCap: "$60B", index: "S&P 500",
+    marketCap: "$60B", marketCapNum: 60, index: "S&P 500",
+    price: 54.55, peRatio: 12.8, fwdPE: 11.5, evEbitda: 8.2, return1Y: 62, return5Y: 11, fromHigh52: -6, sizeCategory: "large",
     aiUseCase: "AI-powered drilling optimization (Lumi AI platform), digital twins for reservoir modeling, predictive equipment maintenance, automated well planning using generative AI.",
     aiMaturity: "scaling",
     marginImpact: "AI drilling optimization reduces non-productive time by 30-40%. Digital services growing 20%+ YoY with 60%+ margins vs. 15% for traditional services.",
@@ -174,7 +194,8 @@ export const AI_ADOPTERS: AIAdopter[] = [
   // --- Telecom / Media ---
   {
     symbol: "TMUS", name: "T-Mobile US", sector: "Communication Services / Telecom",
-    marketCap: "$270B", index: "S&P 500",
+    marketCap: "$270B", marketCapNum: 270, index: "S&P 500",
+    price: 187.53, peRatio: 21.5, fwdPE: 18.8, evEbitda: 10.5, return1Y: -22, return5Y: 6, fromHigh52: -28, sizeCategory: "mega",
     aiUseCase: "AI-powered network optimization (self-healing networks), AI customer service (handling 30%+ of inquiries), churn prediction, dynamic pricing, AI fraud detection.",
     aiMaturity: "embedded",
     marginImpact: "AI customer service reduces cost-per-interaction by 60%. Network AI reduces truck rolls by 25%. Churn reduction from AI retention = $1B+ annual value.",
@@ -189,7 +210,8 @@ export const AI_ADOPTERS: AIAdopter[] = [
   // --- Insurance ---
   {
     symbol: "PGR", name: "Progressive", sector: "Financials / Insurance",
-    marketCap: "$155B", index: "S&P 500",
+    marketCap: "$155B", marketCapNum: 155, index: "S&P 500",
+    price: 190.40, peRatio: 15.2, fwdPE: 18.5, evEbitda: null, return1Y: -31, return5Y: 14, fromHigh52: -34, sizeCategory: "large",
     aiUseCase: "Snapshot telematics + AI for personalized pricing, AI claims processing (photo-based damage assessment), AI underwriting models, fraud detection with NLP on claims narratives.",
     aiMaturity: "embedded",
     marginImpact: "AI-driven pricing precision improves combined ratio by 2-3 points. Photo claims processing reduces adjustment costs by 40%.",
@@ -204,7 +226,8 @@ export const AI_ADOPTERS: AIAdopter[] = [
   // --- Food & Beverage ---
   {
     symbol: "PEP", name: "PepsiCo", sector: "Consumer Staples / Food & Beverage",
-    marketCap: "$210B", index: "S&P 500",
+    marketCap: "$210B", marketCapNum: 210, index: "S&P 500",
+    price: 144.19, peRatio: 22.8, fwdPE: 19.5, evEbitda: 16.2, return1Y: 9, return5Y: 0, fromHigh52: -15, sizeCategory: "mega",
     aiUseCase: "AI-powered demand sensing for snack/beverage inventory, AI-optimized DSD (direct store delivery) routing, generative AI for product development and flavor testing, AI quality control in manufacturing.",
     aiMaturity: "early",
     marginImpact: "Demand sensing reduces waste by 10-15%. Route optimization saves 8-12% on distribution costs. AI product development accelerates innovation cycles.",
