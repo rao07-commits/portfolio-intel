@@ -27,7 +27,24 @@ function toDateKey(d: string): string {
 
 function renderValue(v: unknown): string {
   if (typeof v === "string") return v;
-  if (typeof v === "object" && v !== null) return JSON.stringify(v);
+  if (typeof v === "object" && v !== null) {
+    const obj = v as Record<string, unknown>;
+    // Handle common agent patterns: {action, detail}, {shift, sector, rationale}, etc.
+    const parts: string[] = [];
+    if (obj.action) parts.push(String(obj.action));
+    if (obj.shift) parts.push(String(obj.shift));
+    if (obj.sector) parts.push(`[${obj.sector}]`);
+    if (obj.detail) parts.push(String(obj.detail));
+    if (obj.rationale) parts.push(String(obj.rationale));
+    if (obj.to) parts.push(`Shift to ${obj.to}`);
+    if (obj.from) parts.push(`from ${obj.from}`);
+    if (parts.length > 0) return parts.join(" — ");
+    // Fallback: render key-value pairs
+    return Object.entries(obj)
+      .filter(([, val]) => val !== null && val !== undefined)
+      .map(([key, val]) => `${key}: ${val}`)
+      .join(". ");
+  }
   return String(v);
 }
 
