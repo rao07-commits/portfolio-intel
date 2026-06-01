@@ -35,7 +35,9 @@ Use the provided tools to gather data. Produce a structured JSON briefing.
 - Use second-order thinking from the news: if ARM rallied 50%, who are their suppliers/customers that haven't moved yet? If DeepSeek cut prices, who benefits from cheaper AI inference?
 - Flag contrarian opportunities: oversold quality names, post-earnings overreactions, upcoming catalysts.
 - For IPOs: identify existing public companies that benefit or get hurt.
-- DO NOT repeat the same 5 signals every day. Vary your recommendations. Each briefing should surface at least 2 names you haven't mentioned in recent briefings.
+- DO NOT repeat the same 5 signals every day. Vary your recommendations.
+- Focus on MEDIUM-TERM secular tailwinds (3-12 months), NOT short-term day trades. The user is capturing structural shifts in AI adoption, sector rotation, and macro cycles — not scalping.
+- Frame every signal as a THEME, not a trade: "AI semiconductor cycle," "AI infrastructure buildout," "enterprise AI adoption," etc. The stock is a way to play the theme.
 
 ### Trade signals should be specific and actionable
 - Entry/exit levels with reasoning
