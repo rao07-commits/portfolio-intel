@@ -1,4 +1,4 @@
-import { initDB, getActiveSignals } from "@/lib/db";
+import { initDB } from "@/lib/db";
 import { sql } from "@vercel/postgres";
 
 export const dynamic = "force-dynamic";
@@ -29,10 +29,6 @@ function signalColor(action: string): string {
   if (a.includes("buy") || a.includes("add") || a.includes("initiate")) return "text-green-400";
   if (a.includes("sell") || a.includes("trim") || a.includes("reduce")) return "text-red-400";
   return "text-yellow-400";
-}
-
-function statusBadge(status: string, color: string) {
-  return `${color} bg-opacity-10 border px-2 py-0.5 rounded text-xs font-bold uppercase`;
 }
 
 async function getLatestPrice(symbol: string): Promise<number | null> {
