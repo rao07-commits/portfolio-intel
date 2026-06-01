@@ -199,8 +199,8 @@ export default async function ScorecardPage() {
                       </div>
                     </div>
 
-                    {/* Thesis */}
-                    <p className="text-slate-400 text-sm leading-relaxed">{s.reason?.slice(0, 250)}{(s.reason?.length || 0) > 250 ? "..." : ""}</p>
+                    {/* Full Thesis */}
+                    <p className="text-slate-400 text-sm leading-relaxed">{s.reason}</p>
 
                     <div className="flex items-center gap-3 mt-2 text-xs text-slate-600">
                       <span>Added {s.daysAgo}d ago</span>
