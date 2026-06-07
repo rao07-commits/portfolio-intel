@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { initDB, saveBriefing, insertSignal } from "@/lib/db";
 import { generateBriefing } from "@/lib/agent/briefing-agent";
-import { sendBriefingDigest } from "@/lib/email";
+import { sendBriefingDigest, type DigestExtras } from "@/lib/email";
+import { getOpenSignalsWithPrices } from "@/lib/scorecard";
+import { getValuationSnapshot } from "@/lib/valuation";
+import { getThisWeekEarnings } from "@/lib/earnings-calendar";
 
 export const maxDuration = 300;
 export const dynamic = "force-dynamic";
@@ -50,11 +53,29 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Save failed", details: String(saveErr) }, { status: 500 });
     }
 
-    // 4. Send email digest
+    // 4. Compute deterministic email sections (scorecard, valuation, earnings)
+    // — these change daily by construction and never depend on the agent
+    const extras: DigestExtras = {};
+    try {
+      extras.scorecard = await getOpenSignalsWithPrices();
+    } catch (err) {
+      console.warn("Scorecard extras failed:", err);
+    }
+    try {
+      extras.valuation = await getValuationSnapshot();
+    } catch (err) {
+      console.warn("Valuation extras failed:", err);
+    }
+    const weekday = new Date().toLocaleDateString("en-US", { weekday: "long", timeZone: "America/New_York" });
+    if (weekday === "Monday") {
+      extras.earnings = getThisWeekEarnings();
+    }
+
+    // 5. Send email digest
     const recipientEmail = process.env.DIGEST_EMAIL;
     let emailSent = false;
     if (recipientEmail) {
-      emailSent = (await sendBriefingDigest(briefing, recipientEmail)) || false;
+      emailSent = (await sendBriefingDigest(briefing, recipientEmail, extras)) || false;
       if (emailSent) {
         await saveBriefing(today, briefing, true);
       }

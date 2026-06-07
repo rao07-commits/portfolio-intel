@@ -6,6 +6,7 @@ import { computeConcentration, generateRebalanceRecommendations, interpretMacroD
 import { fetchTechNews, fetchUpcomingIPOs } from "../apis/finnhub";
 import { fetchSectorPerformance } from "../apis/alpha-vantage";
 import { FRED_SERIES, type FredSeriesId } from "../apis/fred";
+import { buildSmartMoneyData, buildRecentSignalsData, buildPreviousBriefingData } from "./tool-data";
 
 async function buildPortfolioWithPrices() {
   const [holdings, priceRows] = await Promise.all([getHoldings(), getLatestPrices()]);
@@ -143,6 +144,43 @@ const getRebalanceRecommendations = tool(
   }
 );
 
+const getSmartMoney = tool(
+  "get_smart_money",
+  "Get latest 13F positions of tracked prominent investors (Ackman, Pabrai, Gavin Baker, Coatue, Altimeter, Buffett, etc.): top positions, quarter-over-quarter changes, consensus names, and overlap with the user's holdings",
+  emptyShape,
+  async () => {
+    const data = await buildSmartMoneyData();
+    return {
+      content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }],
+    };
+  }
+);
+
+const getRecentSignalsTool = tool(
+  "get_recent_signals",
+  "Get trade signals you issued in the last N days — check this BEFORE proposing signals to avoid repeating recommendations",
+  { days: z.number().optional().describe("Lookback window in days (default 14)") },
+  async (args) => {
+    const data = await buildRecentSignalsData(args.days || 14);
+    return {
+      content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }],
+    };
+  }
+);
+
+const getPreviousBriefingTool = tool(
+  "get_previous_briefing",
+  "Get a trimmed view of yesterday's briefing — use it to lead with what CHANGED today and avoid repeating prior advice",
+  emptyShape,
+  async () => {
+    const today = new Date().toISOString().split("T")[0];
+    const data = await buildPreviousBriefingData(today);
+    return {
+      content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }],
+    };
+  }
+);
+
 export const portfolioServer = createSdkMcpServer({
   name: "portfolio-tools",
   version: "1.0.0",
@@ -154,6 +192,9 @@ export const portfolioServer = createSdkMcpServer({
     getIpoCalendar,
     getConcentrationReport,
     getRebalanceRecommendations,
+    getSmartMoney,
+    getRecentSignalsTool,
+    getPreviousBriefingTool,
   ],
   alwaysLoad: true,
 });

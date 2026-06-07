@@ -61,6 +61,46 @@ export async function fetchUpcomingIPOs(): Promise<IPO[]> {
   return (data.ipoCalendar || []) as IPO[];
 }
 
+export interface StockMetrics {
+  symbol: string;
+  peTTM: number | null;
+  forwardPE: number | null;
+  week52High: number | null;
+  week52Low: number | null;
+}
+
+export async function fetchMetrics(symbol: string): Promise<StockMetrics> {
+  const res = await fetch(`${FINNHUB_BASE}/stock/metric?symbol=${symbol}&metric=all`, {
+    headers: headers(),
+  });
+  if (!res.ok) throw new Error(`Finnhub metric error: ${res.status}`);
+
+  const data = await res.json();
+  const m = data?.metric || {};
+  return {
+    symbol,
+    peTTM: m.peTTM ?? m.peBasicExclExtraTTM ?? null,
+    forwardPE: m.forwardPE ?? m.peNormalizedAnnual ?? null,
+    week52High: m["52WeekHigh"] ?? null,
+    week52Low: m["52WeekLow"] ?? null,
+  };
+}
+
+export async function fetchMetricsBatch(symbols: string[]): Promise<StockMetrics[]> {
+  const results: StockMetrics[] = [];
+  const errors: string[] = [];
+  for (const symbol of symbols) {
+    try {
+      results.push(await fetchMetrics(symbol));
+      await new Promise((r) => setTimeout(r, 1100)); // free tier: 60 req/min
+    } catch (err) {
+      errors.push(`${symbol}: ${err}`);
+    }
+  }
+  if (errors.length > 0) console.warn("Finnhub metrics errors:", errors);
+  return results;
+}
+
 export interface AnalystRecommendation {
   symbol: string;
   buy: number;

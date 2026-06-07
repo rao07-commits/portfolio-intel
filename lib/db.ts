@@ -69,9 +69,42 @@ export async function initDB() {
     );
   `;
 
+  await sql`
+    CREATE TABLE IF NOT EXISTS sec_13f_holdings (
+      id SERIAL PRIMARY KEY,
+      cik TEXT NOT NULL,
+      fund_name TEXT NOT NULL,
+      quarter_date DATE NOT NULL,
+      cusip TEXT NOT NULL,
+      issuer_name TEXT NOT NULL,
+      ticker TEXT,
+      shares BIGINT,
+      market_value BIGINT,
+      pct_of_portfolio REAL,
+      change_type TEXT,
+      change_pct REAL,
+      fetched_at TIMESTAMP DEFAULT NOW(),
+      UNIQUE(cik, quarter_date, cusip)
+    );
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS sec_13f_filings (
+      id SERIAL PRIMARY KEY,
+      cik TEXT NOT NULL,
+      accession TEXT NOT NULL UNIQUE,
+      quarter_date DATE NOT NULL,
+      filing_date DATE NOT NULL,
+      fund_name TEXT NOT NULL,
+      processed_at TIMESTAMP DEFAULT NOW()
+    );
+  `;
+
   await sql`CREATE INDEX IF NOT EXISTS idx_macro_series ON macro_indicators(series_id, date DESC);`;
   await sql`CREATE INDEX IF NOT EXISTS idx_market_symbol ON market_data(symbol, date DESC);`;
   await sql`CREATE INDEX IF NOT EXISTS idx_signals_date ON trade_signals(generated_at DESC);`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_13f_cik_quarter ON sec_13f_holdings(cik, quarter_date DESC);`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_13f_ticker ON sec_13f_holdings(ticker);`;
 }
 
 // --- Holdings ---
@@ -213,6 +246,15 @@ export async function getActiveSignals() {
   return result.rows;
 }
 
+export async function getRecentSignals(days = 14) {
+  const result = await sql`
+    SELECT symbol, action, reason, confidence, generated_at FROM trade_signals
+    WHERE generated_at > NOW() - (${days} || ' days')::interval
+    ORDER BY generated_at DESC
+  `;
+  return result.rows;
+}
+
 // --- Briefings ---
 
 export async function saveBriefing(date: string, contentJson: object, emailSent: boolean) {
@@ -244,4 +286,124 @@ export async function getBriefingByDate(date: string) {
     SELECT * FROM briefings WHERE CAST(date AS text) LIKE ${date + '%'} LIMIT 1
   `;
   return result.rows[0] || null;
+}
+
+// Latest briefing strictly before the given date — the agent's "yesterday" view
+export async function getPreviousBriefing(beforeDate: string) {
+  const result = await sql`
+    SELECT * FROM briefings WHERE date < ${beforeDate}
+    ORDER BY date DESC LIMIT 1
+  `;
+  return result.rows[0] || null;
+}
+
+// --- SEC 13F ---
+
+export interface Sec13fHoldingRow {
+  id: number;
+  cik: string;
+  fund_name: string;
+  quarter_date: string;
+  cusip: string;
+  issuer_name: string;
+  ticker: string | null;
+  shares: number;
+  market_value: number;
+  pct_of_portfolio: number;
+  change_type: string | null;
+  change_pct: number | null;
+}
+
+export async function hasProcessedAccession(accession: string): Promise<boolean> {
+  const result = await sql`SELECT 1 FROM sec_13f_filings WHERE accession = ${accession} LIMIT 1`;
+  return result.rows.length > 0;
+}
+
+export async function insertFiling(f: {
+  cik: string;
+  accession: string;
+  quarter_date: string;
+  filing_date: string;
+  fund_name: string;
+}) {
+  await sql`
+    INSERT INTO sec_13f_filings (cik, accession, quarter_date, filing_date, fund_name)
+    VALUES (${f.cik}, ${f.accession}, ${f.quarter_date}, ${f.filing_date}, ${f.fund_name})
+    ON CONFLICT (accession) DO NOTHING
+  `;
+}
+
+export async function upsert13fHolding(h: {
+  cik: string;
+  fund_name: string;
+  quarter_date: string;
+  cusip: string;
+  issuer_name: string;
+  ticker: string | null;
+  shares: number;
+  market_value: number;
+  pct_of_portfolio: number;
+  change_type: string | null;
+  change_pct: number | null;
+}) {
+  await sql`
+    INSERT INTO sec_13f_holdings (cik, fund_name, quarter_date, cusip, issuer_name, ticker, shares, market_value, pct_of_portfolio, change_type, change_pct)
+    VALUES (${h.cik}, ${h.fund_name}, ${h.quarter_date}, ${h.cusip}, ${h.issuer_name}, ${h.ticker}, ${h.shares}, ${h.market_value}, ${h.pct_of_portfolio}, ${h.change_type}, ${h.change_pct})
+    ON CONFLICT (cik, quarter_date, cusip) DO UPDATE SET
+      issuer_name = EXCLUDED.issuer_name,
+      ticker = EXCLUDED.ticker,
+      shares = EXCLUDED.shares,
+      market_value = EXCLUDED.market_value,
+      pct_of_portfolio = EXCLUDED.pct_of_portfolio,
+      change_type = EXCLUDED.change_type,
+      change_pct = EXCLUDED.change_pct,
+      fetched_at = NOW()
+  `;
+}
+
+// Latest quarter's holdings for one fund, largest positions first
+export async function getLatest13fByFund(cik: string, limit = 50): Promise<Sec13fHoldingRow[]> {
+  const result = await sql`
+    SELECT * FROM sec_13f_holdings
+    WHERE cik = ${cik}
+      AND quarter_date = (SELECT MAX(quarter_date) FROM sec_13f_holdings WHERE cik = ${cik})
+    ORDER BY market_value DESC
+    LIMIT ${limit}
+  `;
+  return result.rows as unknown as Sec13fHoldingRow[];
+}
+
+// Prior quarter's holdings for one fund (for QoQ diffing)
+export async function getPrior13fByFund(cik: string, beforeQuarter: string): Promise<Sec13fHoldingRow[]> {
+  const result = await sql`
+    SELECT * FROM sec_13f_holdings
+    WHERE cik = ${cik}
+      AND quarter_date = (
+        SELECT MAX(quarter_date) FROM sec_13f_holdings
+        WHERE cik = ${cik} AND quarter_date < ${beforeQuarter}
+      )
+  `;
+  return result.rows as unknown as Sec13fHoldingRow[];
+}
+
+// Tickers held by >= 2 tracked funds in their latest quarters
+export async function get13fConsensus() {
+  const result = await sql`
+    WITH latest AS (
+      SELECT h.* FROM sec_13f_holdings h
+      INNER JOIN (
+        SELECT cik, MAX(quarter_date) AS max_q FROM sec_13f_holdings GROUP BY cik
+      ) m ON h.cik = m.cik AND h.quarter_date = m.max_q
+      WHERE h.ticker IS NOT NULL AND h.shares > 0
+    )
+    SELECT ticker, MAX(issuer_name) AS issuer_name,
+           COUNT(DISTINCT cik) AS fund_count,
+           ARRAY_AGG(DISTINCT fund_name) AS funds,
+           SUM(market_value) AS combined_value
+    FROM latest
+    GROUP BY ticker
+    HAVING COUNT(DISTINCT cik) >= 2
+    ORDER BY fund_count DESC, combined_value DESC
+  `;
+  return result.rows;
 }

@@ -6,9 +6,28 @@ import { fetchTechNews, fetchUpcomingIPOs } from "../apis/finnhub";
 import { fetchSectorPerformance } from "../apis/alpha-vantage";
 import { FRED_SERIES, type FredSeriesId } from "../apis/fred";
 import { BRIEFING_SYSTEM_PROMPT } from "./prompts";
+import { buildSmartMoneyData, buildRecentSignalsData, buildPreviousBriefingData } from "./tool-data";
+import { getThisWeekEarnings } from "../earnings-calendar";
 
 export interface BriefingOutput {
   date: string;
+  // Delta-focused lead — what is genuinely different vs yesterday's briefing
+  whatChanged: {
+    summary: string;
+    items: string[];
+  };
+  // False = nothing crossed a trigger today (position cap, new cash, macro flip)
+  allocationTriggered: boolean;
+  // Only populated when get_smart_money shows new filings/changes (quarterly)
+  smartMoney?: {
+    hasNewFilings: boolean;
+    highlights: string[];
+  };
+  // Mon = week-ahead, Fri = week-recap, Tue-Thu = lean (omitted)
+  dayOfWeekFlavor?: {
+    type: "week-ahead" | "week-recap" | "lean";
+    content: string[];
+  };
   marketOverview: {
     summary: string;
     indexMoves: { name: string; change: string }[];
@@ -133,6 +152,19 @@ const toolHandlers: Record<string, (args: Record<string, unknown>) => Promise<st
     const recommendations = generateRebalanceRecommendations(portfolio, macroSignals);
     return JSON.stringify({ macroSignals, recommendations }, null, 2);
   },
+  get_smart_money: async () => {
+    const data = await buildSmartMoneyData();
+    return JSON.stringify(data, null, 2);
+  },
+  get_recent_signals: async (args) => {
+    const data = await buildRecentSignalsData(Number(args.days) || 14);
+    return JSON.stringify(data, null, 2);
+  },
+  get_previous_briefing: async () => {
+    const today = new Date().toISOString().split("T")[0];
+    const data = await buildPreviousBriefingData(today);
+    return JSON.stringify(data, null, 2);
+  },
 };
 
 const tools: Anthropic.Tool[] = [
@@ -143,6 +175,9 @@ const tools: Anthropic.Tool[] = [
   { name: "get_ipo_calendar", description: "Get upcoming IPOs for the next 3 months", input_schema: { type: "object" as const, properties: {}, required: [] } },
   { name: "get_concentration_report", description: "Analyze portfolio concentration risk", input_schema: { type: "object" as const, properties: {}, required: [] } },
   { name: "get_rebalance_recommendations", description: "Get actionable rebalancing recommendations", input_schema: { type: "object" as const, properties: {}, required: [] } },
+  { name: "get_smart_money", description: "Get latest 13F positions of tracked prominent investors (Ackman, Pabrai, Gavin Baker, Coatue, Altimeter, Buffett, etc.): top positions, quarter-over-quarter changes, consensus names, and overlap with the user's holdings", input_schema: { type: "object" as const, properties: {}, required: [] } },
+  { name: "get_recent_signals", description: "Get trade signals you issued in the last N days — check this BEFORE proposing signals to avoid repeating recommendations", input_schema: { type: "object" as const, properties: { days: { type: "number", description: "Lookback window in days (default 14)" } }, required: [] } },
+  { name: "get_previous_briefing", description: "Get a trimmed view of yesterday's briefing — use it to lead with what CHANGED today and avoid repeating prior advice", input_schema: { type: "object" as const, properties: {}, required: [] } },
 ];
 
 export async function generateBriefing(): Promise<BriefingOutput> {
@@ -154,10 +189,18 @@ export async function generateBriefing(): Promise<BriefingOutput> {
 
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
+  const weekday = new Date().toLocaleDateString("en-US", { weekday: "long", timeZone: "America/New_York" });
+  const flavorHint =
+    weekday === "Monday"
+      ? `Today is Monday — include dayOfWeekFlavor type "week-ahead": the setup for the week (key macro releases, this week's earnings for holdings/watchlist, positioning into them). This week's known earnings: ${JSON.stringify(getThisWeekEarnings().map((e) => ({ symbol: e.symbol, date: e.date, whatToWatch: e.whatToWatch.slice(0, 120) })))}`
+      : weekday === "Friday"
+        ? `Today is Friday — include dayOfWeekFlavor type "week-recap": how the week's calls and themes played out, what resolved, what to watch next week.`
+        : `Today is ${weekday} — keep it lean; omit dayOfWeekFlavor.`;
+
   const messages: Anthropic.MessageParam[] = [
     {
       role: "user",
-      content: `Today is ${today}. Generate my daily market briefing.\n\nUse the available tools to gather data, then respond with ONLY a JSON object (no preamble, no code fences, no explanation before or after). The JSON must match this schema: { date, marketOverview: { summary, indexMoves: [{name, change}] }, newsHeadlines: [{title, source, relevance, url?}], portfolioPerformance: { totalValue, dayChange, dayChangePct, topMovers: [{symbol, changePct}] }, concentrationRisk: { level, hhi, topPosition: {symbol, weight}, recommendations: [] }, allocationRecommendations: { amznTrim, semisAction, cashDeployment, sectorShifts: [] }, sectorRotation: { bullish: [], bearish: [], signals: [] }, upcomingIpos: [{name, date, sector, relevance}], tradeSignals: [{symbol, action, reason, entryRange, targetPrice, stopLoss, timeframe, confidence}], disclaimer }. Keep summaries concise. Limit to top 5 news, top 5 IPOs, top 5 trade signals.`,
+      content: `Today is ${today} (${weekday}). Generate my daily market briefing.\n\n${flavorHint}\n\nUse the available tools to gather data (start with get_previous_briefing and get_recent_signals), then respond with ONLY a JSON object (no preamble, no code fences, no explanation before or after). The JSON must match this schema: { date, whatChanged: { summary, items: [] }, allocationTriggered: boolean, smartMoney?: { hasNewFilings: boolean, highlights: [] }, dayOfWeekFlavor?: { type: "week-ahead"|"week-recap"|"lean", content: [] }, marketOverview: { summary, indexMoves: [{name, change}] }, newsHeadlines: [{title, source, relevance, url?}], portfolioPerformance: { totalValue, dayChange, dayChangePct, topMovers: [{symbol, changePct}] }, concentrationRisk: { level, hhi, topPosition: {symbol, weight}, recommendations: [] }, allocationRecommendations: { amznTrim, semisAction, cashDeployment, sectorShifts: [] }, sectorRotation: { bullish: [], bearish: [], signals: [] }, upcomingIpos: [{name, date, sector, relevance}], tradeSignals: [{symbol, action, reason, entryRange, targetPrice, stopLoss, timeframe, confidence}], disclaimer }. Keep summaries concise. Limit to top 5 news, top 5 IPOs, top 5 trade signals.`,
     },
   ];
 
@@ -236,6 +279,11 @@ function parseBriefingResponse(text: string, today: string): BriefingOutput {
     const parsed = JSON.parse(jsonStr.trim()) as BriefingOutput;
     parsed.date = parsed.date || today;
     parsed.disclaimer = parsed.disclaimer || "This is informational only, not financial advice.";
+    parsed.tradeSignals = (parsed.tradeSignals || []).map((s) =>
+      normalizeTradeSignal(s as unknown as Record<string, unknown>)
+    );
+    parsed.whatChanged = parsed.whatChanged || { summary: "", items: [] };
+    parsed.allocationTriggered = parsed.allocationTriggered ?? true;
     return parsed;
   } catch {
     // If JSON parsing fails, return a briefing with the raw text as summary
@@ -247,9 +295,26 @@ function parseBriefingResponse(text: string, today: string): BriefingOutput {
   }
 }
 
+// The model sometimes emits the signal thesis under a different key (thesis/rationale/
+// variantPerception) — coerce to `reason` so the email never renders "undefined".
+function normalizeTradeSignal(s: Record<string, unknown>): BriefingOutput["tradeSignals"][number] {
+  return {
+    symbol: String(s.symbol ?? ""),
+    action: String(s.action ?? ""),
+    reason: String(s.reason ?? s.thesis ?? s.rationale ?? s.variantPerception ?? ""),
+    entryRange: String(s.entryRange ?? ""),
+    targetPrice: String(s.targetPrice ?? ""),
+    stopLoss: String(s.stopLoss ?? ""),
+    timeframe: String(s.timeframe ?? ""),
+    confidence: String(s.confidence ?? "medium"),
+  };
+}
+
 function fallbackBriefing(today: string): BriefingOutput {
   return {
     date: today,
+    whatChanged: { summary: "", items: [] },
+    allocationTriggered: false,
     marketOverview: { summary: "Briefing generation incomplete.", indexMoves: [] },
     newsHeadlines: [],
     portfolioPerformance: { totalValue: 0, dayChange: 0, dayChangePct: 0, topMovers: [] },

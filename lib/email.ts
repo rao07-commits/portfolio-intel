@@ -1,5 +1,15 @@
 import { Resend } from "resend";
 import type { BriefingOutput } from "./agent/briefing-agent";
+import type { EnrichedSignal } from "./scorecard";
+import type { ValuationRow } from "./valuation";
+import type { EarningsEvent } from "./earnings-calendar";
+
+// Deterministic sections computed in code by the cron route (NOT by the agent)
+export interface DigestExtras {
+  scorecard?: EnrichedSignal[];
+  valuation?: ValuationRow[];
+  earnings?: EarningsEvent[];
+}
 
 function getResend() {
   if (!process.env.RESEND_API_KEY) return null;
@@ -7,8 +17,9 @@ function getResend() {
 }
 
 function signalColor(action: string): string {
-  if (action.toLowerCase().includes("buy") || action.toLowerCase().includes("add")) return "#22c55e";
-  if (action.toLowerCase().includes("sell") || action.toLowerCase().includes("trim")) return "#ef4444";
+  const a = action.toLowerCase();
+  if (["buy", "add", "long", "initiate", "accumulate", "start"].some((w) => a.includes(w))) return "#22c55e";
+  if (["sell", "trim", "exit", "reduce"].some((w) => a.includes(w))) return "#ef4444";
   return "#eab308";
 }
 
@@ -41,39 +52,126 @@ function safe(v: unknown): string {
   return String(v);
 }
 
-export async function sendBriefingDigest(briefing: BriefingOutput, recipientEmail: string) {
-  const resend = getResend();
-  if (!resend) {
-    console.warn("RESEND_API_KEY not set, skipping briefing email");
-    return false;
-  }
+// Concentration math is only meaningful when holdings have real quantities
+// (all-zero quantities → hhi 0 / weight NaN). Gate the section instead of
+// rendering "HHI: NaN · Top: AMZN at NaN%".
+function isConcentrationValid(risk: BriefingOutput["concentrationRisk"] | undefined): boolean {
+  if (!risk) return false;
+  const hhi = Number(risk.hhi);
+  const weight = Number(risk.topPosition?.weight);
+  return Number.isFinite(hhi) && hhi > 0 && Number.isFinite(weight) && weight > 0;
+}
 
-  const newsRows = briefing.newsHeadlines
-    .slice(0, 5)
-    .map((n) => `
-      <tr style="border-bottom:1px solid #1e293b;">
-        <td style="padding:10px 16px;">
-          ${n.url ? `<a href="${n.url}" style="color:#60a5fa;text-decoration:none;font-weight:600;">${n.title}</a>` : `<span style="color:#f1f5f9;font-weight:600;">${n.title}</span>`}
-          <div style="color:#94a3b8;font-size:12px;margin-top:2px;">${n.source} &middot; ${n.relevance}</div>
-        </td>
-      </tr>`)
+const H2 = `color:#f1f5f9;font-size:18px;margin:24px 0 12px;padding-bottom:8px;border-bottom:2px solid #334155;`;
+const ROW = `border-bottom:1px solid #1e293b;`;
+
+function sectionHeading(title: string): string {
+  return `<h2 style="${H2}">${title}</h2>`;
+}
+
+// --- Section renderers ---
+
+function renderWhatChanged(briefing: BriefingOutput): string {
+  const wc = briefing.whatChanged;
+  if (!wc || (!wc.summary && (!wc.items || wc.items.length === 0))) return "";
+  return `
+    ${sectionHeading("What's New Today")}
+    ${wc.summary ? `<p style="color:#e2e8f0;font-size:14px;line-height:1.6;font-weight:500;">${wc.summary}</p>` : ""}
+    ${(wc.items || []).map((i) => `<div style="color:#cbd5e1;font-size:13px;margin:6px 0;padding-left:12px;border-left:3px solid #3b82f6;">${renderValue(i)}</div>`).join("")}`;
+}
+
+function renderScorecard(scorecard: EnrichedSignal[] | undefined): string {
+  if (!scorecard || scorecard.length === 0) return "";
+  const withPnl = scorecard.filter((s) => s.pnl !== null);
+  const winners = withPnl.filter((s) => (s.pnl || 0) > 0);
+  const winRate = withPnl.length > 0 ? (winners.length / withPnl.length) * 100 : 0;
+  const sorted = [...scorecard].sort((a, b) => (b.pnl ?? -Infinity) - (a.pnl ?? -Infinity));
+
+  const rows = sorted
+    .slice(0, 12)
+    .map((s) => {
+      const pnlColor = (s.pnl || 0) > 0 ? "#22c55e" : (s.pnl || 0) < 0 ? "#ef4444" : "#64748b";
+      return `
+      <tr style="${ROW}">
+        <td style="padding:6px 16px;color:#f1f5f9;font-weight:600;font-size:13px;">${s.symbol}</td>
+        <td style="padding:6px 8px;color:${signalColor(s.action)};font-size:11px;font-weight:700;">${s.action.slice(0, 20).toUpperCase()}</td>
+        <td style="padding:6px 8px;color:${pnlColor};font-size:13px;font-weight:700;font-family:monospace;">${s.pnl !== null ? `${s.pnl > 0 ? "+" : ""}${s.pnl.toFixed(1)}%` : "—"}</td>
+        <td style="padding:6px 8px;color:#94a3b8;font-size:11px;">${s.status}</td>
+        <td style="padding:6px 8px;color:#64748b;font-size:11px;">${s.daysAgo}d</td>
+      </tr>`;
+    })
     .join("");
 
-  const signalRows = briefing.tradeSignals
-    .map((s) => `
-      <tr style="border-bottom:1px solid #1e293b;">
+  return `
+    ${sectionHeading("Signal Scorecard")}
+    <p style="color:#94a3b8;font-size:12px;margin:0 0 8px;">How past calls are doing &middot; Win rate: <span style="color:${winRate >= 50 ? "#22c55e" : "#eab308"};font-weight:700;">${winRate.toFixed(0)}%</span> across ${withPnl.length} priced signals</p>
+    <table style="width:100%;border-collapse:collapse;"><tbody>${rows}</tbody></table>`;
+}
+
+function renderValuation(valuation: ValuationRow[] | undefined): string {
+  if (!valuation || valuation.length === 0) return "";
+  const fmt = (n: number | null, digits = 1) => (n !== null && Number.isFinite(n) ? n.toFixed(digits) : "—");
+  const rows = valuation
+    .map((v) => {
+      const pos = v.range52Position;
+      const posColor = pos === null ? "#64748b" : pos > 0.85 ? "#ef4444" : pos < 0.3 ? "#22c55e" : "#94a3b8";
+      return `
+      <tr style="${ROW}">
+        <td style="padding:6px 16px;color:#f1f5f9;font-weight:600;font-size:13px;">${v.symbol}</td>
+        <td style="padding:6px 8px;color:#94a3b8;font-size:12px;font-family:monospace;">${v.price !== null ? `$${v.price.toFixed(2)}` : "—"}</td>
+        <td style="padding:6px 8px;color:#94a3b8;font-size:12px;font-family:monospace;">${fmt(v.peTTM)}</td>
+        <td style="padding:6px 8px;color:#94a3b8;font-size:12px;font-family:monospace;">${fmt(v.forwardPE)}</td>
+        <td style="padding:6px 8px;color:${posColor};font-size:12px;font-family:monospace;">${pos !== null ? `${(pos * 100).toFixed(0)}%` : "—"}</td>
+      </tr>`;
+    })
+    .join("");
+
+  return `
+    ${sectionHeading("Valuation Snapshot")}
+    <table style="width:100%;border-collapse:collapse;">
+      <thead><tr style="border-bottom:2px solid #334155;">
+        <th style="text-align:left;padding:6px 16px;color:#64748b;font-size:10px;text-transform:uppercase;">Symbol</th>
+        <th style="text-align:left;padding:6px 8px;color:#64748b;font-size:10px;text-transform:uppercase;">Price</th>
+        <th style="text-align:left;padding:6px 8px;color:#64748b;font-size:10px;text-transform:uppercase;">P/E (TTM)</th>
+        <th style="text-align:left;padding:6px 8px;color:#64748b;font-size:10px;text-transform:uppercase;">Fwd P/E</th>
+        <th style="text-align:left;padding:6px 8px;color:#64748b;font-size:10px;text-transform:uppercase;">52wk Range</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <p style="color:#475569;font-size:10px;margin:4px 16px;">52wk Range: 0% = at 52-week low, 100% = at 52-week high</p>`;
+}
+
+function renderTradeSignals(briefing: BriefingOutput): string {
+  if (briefing.tradeSignals.length === 0) return "";
+  const rows = briefing.tradeSignals
+    .map((s) => {
+      const raw = s.reason ?? (s as Record<string, unknown>).thesis ?? (s as Record<string, unknown>).rationale;
+      const reason = raw ? renderValue(raw) : "";
+      return `
+      <tr style="${ROW}">
         <td style="padding:10px 16px;">
           <span style="color:${signalColor(s.action)};font-weight:700;font-size:14px;">${s.action.toUpperCase()}</span>
           <span style="color:#f1f5f9;font-weight:600;margin-left:8px;">${s.symbol}</span>
-          <div style="color:#94a3b8;font-size:12px;margin-top:4px;">${s.reason}</div>
+          ${reason ? `<div style="color:#94a3b8;font-size:12px;margin-top:4px;">${reason}</div>` : ""}
           <div style="color:#64748b;font-size:11px;margin-top:4px;">
-            Entry: ${s.entryRange} &middot; Target: ${s.targetPrice} &middot; Stop: ${s.stopLoss} &middot; ${s.timeframe} &middot; Confidence: ${s.confidence}
+            Entry: ${safe(s.entryRange)} &middot; Target: ${safe(s.targetPrice)} &middot; Stop: ${safe(s.stopLoss)} &middot; ${safe(s.timeframe)} &middot; Confidence: ${safe(s.confidence)}
           </div>
         </td>
-      </tr>`)
+      </tr>`;
+    })
     .join("");
+  return `
+    ${sectionHeading("Trade Signals")}
+    <table style="width:100%;border-collapse:collapse;"><tbody>${rows}</tbody></table>`;
+}
 
-  const allocationItems = [
+function renderAllocation(briefing: BriefingOutput): string {
+  if (!briefing.allocationTriggered) {
+    return `
+      ${sectionHeading("Allocation Actions")}
+      <p style="color:#64748b;font-size:13px;font-style:italic;">No allocation changes warranted today — no caps crossed, no macro signals flipped.</p>`;
+  }
+  const items = [
     briefing.allocationRecommendations?.amznTrim,
     briefing.allocationRecommendations?.semisAction,
     briefing.allocationRecommendations?.cashDeployment,
@@ -82,17 +180,145 @@ export async function sendBriefingDigest(briefing: BriefingOutput, recipientEmai
     .filter(Boolean)
     .map((a) => `<li style="color:#cbd5e1;margin-bottom:6px;font-size:13px;">${renderValue(a)}</li>`)
     .join("");
+  if (!items) return "";
+  return `
+    ${sectionHeading("Allocation Actions")}
+    <ul style="padding-left:20px;margin:0;">${items}</ul>`;
+}
 
-  const ipoRows = briefing.upcomingIpos
+function renderSmartMoney(briefing: BriefingOutput): string {
+  const sm = briefing.smartMoney;
+  if (!sm || !sm.hasNewFilings || !sm.highlights || sm.highlights.length === 0) return "";
+  return `
+    ${sectionHeading("Smart Money — New 13F Filings")}
+    ${sm.highlights.map((h) => `<div style="color:#cbd5e1;font-size:13px;margin:6px 0;padding-left:12px;border-left:3px solid #a855f7;">${renderValue(h)}</div>`).join("")}`;
+}
+
+function renderDayFlavor(briefing: BriefingOutput, earnings: EarningsEvent[] | undefined): string {
+  const flavor = briefing.dayOfWeekFlavor;
+  if (!flavor || flavor.type === "lean" || !flavor.content || flavor.content.length === 0) return "";
+  const title = flavor.type === "week-ahead" ? "The Week Ahead" : "Week in Review";
+
+  const earningsTable =
+    flavor.type === "week-ahead" && earnings && earnings.length > 0
+      ? `<table style="width:100%;border-collapse:collapse;margin-top:8px;"><tbody>${earnings
+          .map(
+            (e) => `
+        <tr style="${ROW}">
+          <td style="padding:6px 16px;color:#f1f5f9;font-weight:600;font-size:13px;">${e.symbol}</td>
+          <td style="padding:6px 8px;color:#94a3b8;font-size:12px;">${e.date} ${e.timing}</td>
+          <td style="padding:6px 8px;color:#94a3b8;font-size:12px;">${e.whatToWatch.slice(0, 140)}</td>
+        </tr>`
+          )
+          .join("")}</tbody></table>`
+      : "";
+
+  return `
+    ${sectionHeading(title)}
+    ${flavor.content.map((c) => `<p style="color:#cbd5e1;font-size:13px;margin:6px 0;">${renderValue(c)}</p>`).join("")}
+    ${earningsTable}`;
+}
+
+function renderMarketOverview(briefing: BriefingOutput): string {
+  return `
+    ${sectionHeading("Market Overview")}
+    <p style="color:#cbd5e1;font-size:14px;line-height:1.6;">${briefing.marketOverview.summary}</p>
+    ${briefing.marketOverview.indexMoves.length > 0 ? `
+      <div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:12px;">
+        ${briefing.marketOverview.indexMoves.map((i) => `
+          <div style="background:#1e293b;padding:12px 16px;border-radius:8px;min-width:120px;">
+            <div style="color:#94a3b8;font-size:12px;">${i.name}</div>
+            <div style="color:${i.change.startsWith("-") ? "#ef4444" : "#22c55e"};font-size:16px;font-weight:700;">${i.change}</div>
+          </div>`).join("")}
+      </div>` : ""}`;
+}
+
+function renderNews(briefing: BriefingOutput): string {
+  if (briefing.newsHeadlines.length === 0) return "";
+  const rows = briefing.newsHeadlines
+    .slice(0, 5)
+    .map((n) => `
+      <tr style="${ROW}">
+        <td style="padding:10px 16px;">
+          ${n.url ? `<a href="${n.url}" style="color:#60a5fa;text-decoration:none;font-weight:600;">${n.title}</a>` : `<span style="color:#f1f5f9;font-weight:600;">${n.title}</span>`}
+          <div style="color:#94a3b8;font-size:12px;margin-top:2px;">${n.source} &middot; ${n.relevance}</div>
+        </td>
+      </tr>`)
+    .join("");
+  return `
+    ${sectionHeading("AI & Tech News")}
+    <table style="width:100%;border-collapse:collapse;"><tbody>${rows}</tbody></table>`;
+}
+
+function renderIpos(briefing: BriefingOutput): string {
+  if (briefing.upcomingIpos.length === 0) return "";
+  const rows = briefing.upcomingIpos
     .slice(0, 5)
     .map((ipo) => `
-      <tr style="border-bottom:1px solid #1e293b;">
+      <tr style="${ROW}">
         <td style="padding:8px 16px;color:#f1f5f9;font-weight:600;">${ipo.name}</td>
         <td style="padding:8px;color:#94a3b8;font-size:13px;">${ipo.date}</td>
         <td style="padding:8px;color:#94a3b8;font-size:13px;">${ipo.sector}</td>
         <td style="padding:8px;color:#94a3b8;font-size:13px;">${ipo.relevance}</td>
       </tr>`)
     .join("");
+  return `
+    ${sectionHeading("Upcoming IPOs")}
+    <table style="width:100%;border-collapse:collapse;">
+      <thead><tr style="border-bottom:2px solid #334155;">
+        <th style="text-align:left;padding:8px 16px;color:#64748b;font-size:11px;text-transform:uppercase;">Company</th>
+        <th style="text-align:left;padding:8px;color:#64748b;font-size:11px;text-transform:uppercase;">Date</th>
+        <th style="text-align:left;padding:8px;color:#64748b;font-size:11px;text-transform:uppercase;">Sector</th>
+        <th style="text-align:left;padding:8px;color:#64748b;font-size:11px;text-transform:uppercase;">Relevance</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+function renderSectorRotation(briefing: BriefingOutput): string {
+  if ((briefing.sectorRotation?.signals?.length || 0) === 0) return "";
+  return `
+    ${sectionHeading("Sector Rotation")}
+    <div style="display:flex;gap:16px;margin-bottom:12px;">
+      <div style="flex:1;background:#1e293b;padding:12px;border-radius:8px;">
+        <div style="color:#22c55e;font-weight:700;font-size:13px;margin-bottom:6px;">BULLISH</div>
+        ${(briefing.sectorRotation?.bullish || []).map((s) => `<div style="color:#cbd5e1;font-size:13px;">+ ${s}</div>`).join("")}
+      </div>
+      <div style="flex:1;background:#1e293b;padding:12px;border-radius:8px;">
+        <div style="color:#ef4444;font-weight:700;font-size:13px;margin-bottom:6px;">BEARISH</div>
+        ${(briefing.sectorRotation?.bearish || []).map((s) => `<div style="color:#cbd5e1;font-size:13px;">- ${s}</div>`).join("")}
+      </div>
+    </div>
+    ${(briefing.sectorRotation?.signals || []).map((s) => `<p style="color:#94a3b8;font-size:13px;margin:4px 0;">${s}</p>`).join("")}`;
+}
+
+function renderPortfolioRisk(briefing: BriefingOutput): string {
+  if (isConcentrationValid(briefing.concentrationRisk)) {
+    return `
+      ${sectionHeading("Portfolio Risk")}
+      <div style="background:#1e293b;padding:16px;border-radius:8px;border-left:4px solid ${riskColor(safe(briefing.concentrationRisk?.level))};">
+        <div style="color:#f1f5f9;font-weight:700;">Concentration: <span style="color:${riskColor(safe(briefing.concentrationRisk?.level))};text-transform:uppercase;">${safe(briefing.concentrationRisk?.level).slice(0, 30)}</span></div>
+        <div style="color:#94a3b8;font-size:13px;margin-top:4px;">HHI: ${Number(briefing.concentrationRisk?.hhi || 0).toFixed(0)} &middot; Top: ${safe(briefing.concentrationRisk?.topPosition?.symbol) || "N/A"} at ${Number(briefing.concentrationRisk?.topPosition?.weight || 0).toFixed(1)}%</div>
+        ${(briefing.concentrationRisk?.recommendations || []).map((r) => `<div style="color:#cbd5e1;font-size:13px;margin-top:4px;">- ${renderValue(r)}</div>`).join("")}
+      </div>`;
+  }
+  return `
+    ${sectionHeading("Portfolio Risk")}
+    <div style="background:#1e293b;padding:12px 16px;border-radius:8px;border-left:4px solid #eab308;">
+      <div style="color:#eab308;font-size:13px;">Position-sizing data unavailable &mdash; seed share quantities via POST /api/portfolio to enable concentration analysis.</div>
+    </div>`;
+}
+
+export async function sendBriefingDigest(
+  briefing: BriefingOutput,
+  recipientEmail: string,
+  extras: DigestExtras = {}
+) {
+  const resend = getResend();
+  if (!resend) {
+    console.warn("RESEND_API_KEY not set, skipping briefing email");
+    return false;
+  }
 
   const dateStr = new Date().toLocaleDateString("en-US", {
     weekday: "long",
@@ -108,69 +334,18 @@ export async function sendBriefingDigest(briefing: BriefingOutput, recipientEmai
         <p style="color:#64748b;font-size:14px;margin:8px 0 0;">${dateStr}</p>
       </div>
 
-      <!-- Market Overview -->
-      <h2 style="color:#f1f5f9;font-size:18px;margin:24px 0 12px;padding-bottom:8px;border-bottom:2px solid #334155;">Market Overview</h2>
-      <p style="color:#cbd5e1;font-size:14px;line-height:1.6;">${briefing.marketOverview.summary}</p>
-      ${briefing.marketOverview.indexMoves.length > 0 ? `
-        <div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:12px;">
-          ${briefing.marketOverview.indexMoves.map((i) => `
-            <div style="background:#1e293b;padding:12px 16px;border-radius:8px;min-width:120px;">
-              <div style="color:#94a3b8;font-size:12px;">${i.name}</div>
-              <div style="color:${i.change.startsWith("-") ? "#ef4444" : "#22c55e"};font-size:16px;font-weight:700;">${i.change}</div>
-            </div>`).join("")}
-        </div>` : ""}
-
-      <!-- Concentration Risk -->
-      <h2 style="color:#f1f5f9;font-size:18px;margin:24px 0 12px;padding-bottom:8px;border-bottom:2px solid #334155;">Portfolio Risk</h2>
-      <div style="background:#1e293b;padding:16px;border-radius:8px;border-left:4px solid ${riskColor(safe(briefing.concentrationRisk?.level))};">
-        <div style="color:#f1f5f9;font-weight:700;">Concentration: <span style="color:${riskColor(safe(briefing.concentrationRisk?.level))};text-transform:uppercase;">${safe(briefing.concentrationRisk?.level).slice(0, 30)}</span></div>
-        <div style="color:#94a3b8;font-size:13px;margin-top:4px;">HHI: ${Number(briefing.concentrationRisk?.hhi || 0).toFixed(0)} &middot; Top: ${safe(briefing.concentrationRisk?.topPosition?.symbol) || "N/A"} at ${Number(briefing.concentrationRisk?.topPosition?.weight || 0).toFixed(1)}%</div>
-        ${(briefing.concentrationRisk?.recommendations || []).map((r) => `<div style="color:#cbd5e1;font-size:13px;margin-top:4px;">- ${renderValue(r)}</div>`).join("")}
-      </div>
-
-      <!-- Allocation Recommendations -->
-      <h2 style="color:#f1f5f9;font-size:18px;margin:24px 0 12px;padding-bottom:8px;border-bottom:2px solid #334155;">Allocation Actions</h2>
-      <ul style="padding-left:20px;margin:0;">${allocationItems}</ul>
-
-      <!-- AI/Tech News -->
-      <h2 style="color:#f1f5f9;font-size:18px;margin:24px 0 12px;padding-bottom:8px;border-bottom:2px solid #334155;">AI & Tech News</h2>
-      <table style="width:100%;border-collapse:collapse;"><tbody>${newsRows}</tbody></table>
-
-      <!-- Trade Signals -->
-      ${briefing.tradeSignals.length > 0 ? `
-        <h2 style="color:#f1f5f9;font-size:18px;margin:24px 0 12px;padding-bottom:8px;border-bottom:2px solid #334155;">Trade Signals</h2>
-        <table style="width:100%;border-collapse:collapse;"><tbody>${signalRows}</tbody></table>
-      ` : ""}
-
-      <!-- Upcoming IPOs -->
-      ${briefing.upcomingIpos.length > 0 ? `
-        <h2 style="color:#f1f5f9;font-size:18px;margin:24px 0 12px;padding-bottom:8px;border-bottom:2px solid #334155;">Upcoming IPOs</h2>
-        <table style="width:100%;border-collapse:collapse;">
-          <thead><tr style="border-bottom:2px solid #334155;">
-            <th style="text-align:left;padding:8px 16px;color:#64748b;font-size:11px;text-transform:uppercase;">Company</th>
-            <th style="text-align:left;padding:8px;color:#64748b;font-size:11px;text-transform:uppercase;">Date</th>
-            <th style="text-align:left;padding:8px;color:#64748b;font-size:11px;text-transform:uppercase;">Sector</th>
-            <th style="text-align:left;padding:8px;color:#64748b;font-size:11px;text-transform:uppercase;">Relevance</th>
-          </tr></thead>
-          <tbody>${ipoRows}</tbody>
-        </table>
-      ` : ""}
-
-      <!-- Sector Rotation -->
-      ${(briefing.sectorRotation?.signals?.length || 0) > 0 ? `
-        <h2 style="color:#f1f5f9;font-size:18px;margin:24px 0 12px;padding-bottom:8px;border-bottom:2px solid #334155;">Sector Rotation</h2>
-        <div style="display:flex;gap:16px;margin-bottom:12px;">
-          <div style="flex:1;background:#1e293b;padding:12px;border-radius:8px;">
-            <div style="color:#22c55e;font-weight:700;font-size:13px;margin-bottom:6px;">BULLISH</div>
-            ${(briefing.sectorRotation?.bullish || []).map((s) => `<div style="color:#cbd5e1;font-size:13px;">+ ${s}</div>`).join("")}
-          </div>
-          <div style="flex:1;background:#1e293b;padding:12px;border-radius:8px;">
-            <div style="color:#ef4444;font-weight:700;font-size:13px;margin-bottom:6px;">BEARISH</div>
-            ${(briefing.sectorRotation?.bearish || []).map((s) => `<div style="color:#cbd5e1;font-size:13px;">- ${s}</div>`).join("")}
-          </div>
-        </div>
-        ${(briefing.sectorRotation?.signals || []).map((s) => `<p style="color:#94a3b8;font-size:13px;margin:4px 0;">${s}</p>`).join("")}
-      ` : ""}
+      ${renderWhatChanged(briefing)}
+      ${renderScorecard(extras.scorecard)}
+      ${renderValuation(extras.valuation)}
+      ${renderTradeSignals(briefing)}
+      ${renderAllocation(briefing)}
+      ${renderSmartMoney(briefing)}
+      ${renderDayFlavor(briefing, extras.earnings)}
+      ${renderMarketOverview(briefing)}
+      ${renderNews(briefing)}
+      ${renderIpos(briefing)}
+      ${renderSectorRotation(briefing)}
+      ${renderPortfolioRisk(briefing)}
 
       <!-- Disclaimer -->
       <div style="text-align:center;margin-top:32px;padding-top:16px;border-top:1px solid #334155;">
