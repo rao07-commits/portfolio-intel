@@ -27,6 +27,16 @@ function fmtValue(v: number): string {
   return `$${(v / 1e3).toFixed(0)}K`;
 }
 
+// SEC filings store issuer names in all-caps with abbreviations (e.g.
+// "ROBINHOOD MKTS INC"). Title-case for readability while leaving short
+// all-caps tokens (likely acronyms/tickers) alone.
+function prettyName(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/\b([a-z])/g, (m) => m.toUpperCase())
+    .replace(/\b(Inc|Corp|Co|Ltd|Plc|Llc|Lp|Na|Sa|Ag|Nv)\b/g, (m) => m);
+}
+
 export default async function SmartMoneyPage() {
   await initDB();
 
@@ -84,6 +94,7 @@ export default async function SmartMoneyPage() {
                     <span className="text-white font-bold">{o.ticker}</span>
                     {changeBadge(o.change_type)}
                   </div>
+                  <div className="text-slate-400 text-xs mt-0.5">{prettyName(o.issuer_name)}</div>
                   <div className="text-slate-400 text-sm mt-1">{o.fund}</div>
                   <div className="text-slate-500 text-xs mt-1">
                     {fmtValue(o.market_value)} &middot; {Number(o.pct_of_portfolio).toFixed(1)}% of fund
@@ -103,7 +114,7 @@ export default async function SmartMoneyPage() {
                 <thead>
                   <tr className="border-b border-slate-700 text-slate-500 text-xs uppercase">
                     <th className="text-left px-4 py-2">Ticker</th>
-                    <th className="text-left px-4 py-2">Issuer</th>
+                    <th className="text-left px-4 py-2">Company</th>
                     <th className="text-left px-4 py-2">Funds</th>
                     <th className="text-right px-4 py-2">Combined Value</th>
                   </tr>
@@ -117,7 +128,7 @@ export default async function SmartMoneyPage() {
                           <span className="ml-2 text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400">YOU OWN</span>
                         )}
                       </td>
-                      <td className="px-4 py-2 text-slate-400">{String(c.issuer_name)}</td>
+                      <td className="px-4 py-2 text-slate-400">{prettyName(String(c.issuer_name))}</td>
                       <td className="px-4 py-2 text-slate-400">{(c.funds as string[]).join(", ")}</td>
                       <td className="px-4 py-2 text-right text-slate-300 font-mono">{fmtValue(Number(c.combined_value))}</td>
                     </tr>
@@ -147,14 +158,19 @@ export default async function SmartMoneyPage() {
                     Q ending {quarter ? new Date(quarter).toLocaleDateString("en-US", { month: "short", year: "numeric", timeZone: "UTC" }) : "—"}
                   </div>
                 </div>
-                <div className="space-y-1.5">
+                <div className="space-y-2">
                   {active.map((p) => (
-                    <div key={p.cusip} className="flex items-center justify-between text-sm">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span className="text-white font-semibold">{p.ticker || p.issuer_name.slice(0, 24)}</span>
-                        {changeBadge(p.change_type)}
-                        {p.ticker && userSymbols.has(p.ticker.toUpperCase()) && (
-                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400">YOU OWN</span>
+                    <div key={p.cusip} className="flex items-start justify-between text-sm">
+                      <div className="min-w-0 pr-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-white font-semibold">{p.ticker || prettyName(p.issuer_name)}</span>
+                          {changeBadge(p.change_type)}
+                          {p.ticker && userSymbols.has(p.ticker.toUpperCase()) && (
+                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400">YOU OWN</span>
+                          )}
+                        </div>
+                        {p.ticker && (
+                          <div className="text-slate-500 text-xs truncate">{prettyName(p.issuer_name)}</div>
                         )}
                       </div>
                       <div className="flex items-center gap-3 text-xs shrink-0">
@@ -165,7 +181,7 @@ export default async function SmartMoneyPage() {
                   ))}
                   {exited.length > 0 && (
                     <div className="pt-2 mt-2 border-t border-slate-700/50 text-xs text-slate-500">
-                      Exited: {exited.map((p) => p.ticker || p.issuer_name.slice(0, 20)).join(", ")}
+                      Exited: {exited.map((p) => p.ticker || prettyName(p.issuer_name)).join(", ")}
                     </div>
                   )}
                 </div>
