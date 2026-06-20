@@ -2,6 +2,80 @@
 
 Remote agents should use this file to plan non-trivial tasks, track progress, and record the verification performed before reporting completion.
 
+## Current Task: Deployment Access Check
+
+### Plan
+- [x] Check which deployment/CLI tools are installed locally.
+- [x] Check repo remote, Vercel project linkage, and current working tree status.
+- [x] Identify whether Codex can deploy directly or needs the user to log in/authorize.
+- [x] Explain the practical path for getting the daily email changes into production.
+
+### Findings
+- Local CLIs are installed: Vercel CLI `54.4.1`, Codex CLI `0.142.0-alpha.6`, Claude Code `2.1.181`.
+- Repo remote is `https://github.com/rao07-commits/portfolio-intel.git` on branch `main`.
+- Vercel project is already linked via `.vercel/project.json`: project `portfolio-intel`.
+- `vercel whoami` succeeds as `raosiddarth07-5712`, so this machine can likely deploy with Vercel CLI.
+- Production deployment has not been run yet. Current changes are still local until committed/pushed or deployed with `vercel deploy --prod`.
+
+## Current Task: ChatGPT Performance Tracker Improvements
+
+### Plan
+- [x] Capture the visible recommendations from the open ChatGPT "Performance Tracker Summary" tab.
+- [x] Add structured signal fields: score, type, trigger reason, risk notes, and data quality.
+- [x] Enrich required research context with recent price changes, market-data timestamps, and freshness/staleness flags.
+- [x] Render the added signal metadata in the daily email without making it noisy.
+- [x] Verify lint, TypeScript, production build, and diff hygiene.
+
+### Chrome findings
+- Full ChatGPT history extraction was not available through Chrome controls, but the visible recommendations were readable.
+- Visible recommendations: store ticker metadata; pull latest price, prior close, 1D/5D/30D change, volume, market cap if available; pull macro inputs such as 10Y yield, 2Y yield, 10Y-2Y spread, breakeven inflation, oil, dollar, SPY/QQQ; pull recent headlines; store fetched data with timestamps.
+- Visible validation layer: check market-data freshness, flag missing/stale prices, flag corporate actions/splits if detected, avoid confident signals when key data is missing, and add a `data_quality` field to every output.
+- Visible signal engine: emit structured signal objects with ticker, company name, current price, 1D/5D price changes, 0-100 score, signal type, trigger reason, confidence, action, and risk notes.
+
+### Review
+- Added `lib/market-health.ts` to compute tracked symbols, current price, volume, 1D/5D/30D moves, freshness warnings, and `dataQuality`.
+- Added `get_market_health` to both the raw briefing agent and MCP tool server, and included it in mandatory preloaded briefing research.
+- Extended `BriefingOutput.tradeSignals` with optional company name, current price, recent changes, signal score/type, trigger reason, data quality, and risk notes.
+- Updated the briefing prompt to require data-quality-aware confidence and to avoid confident signals when market data is missing/stale.
+- Updated the daily email and `/briefing` page to render the new signal metadata compactly.
+- Expanded daily market-data cron to always fetch SPY and QQQ, and added FRED series for 10Y/2Y yields, WTI oil, and the broad dollar index.
+
+### Verification
+- `npm run lint` passed.
+- `npx tsc --noEmit` passed after replacing Set spreads with `Array.from(...)` for this project target.
+- `npm run build` passed. It still prints pre-existing Recharts width/height warnings during static generation, but compilation and route generation succeed.
+- `git diff --check` passed.
+
+## Current Task: Daily Claude Email Research Gap Fix
+
+### Plan
+- [x] Confirm what local project powers the daily Claude portfolio email and what "import" means in this repo.
+- [x] Audit briefing agent prompts, tool inputs, email rendering, and prior notes for research gaps.
+- [x] Implement the smallest high-leverage fixes that improve portfolio allocation insight without inventing unrelated architecture.
+- [x] Verify with typecheck/build and targeted checks for generated email/briefing behavior.
+- [x] Record final review, verification, and any remaining handoff questions.
+
+### Working assumptions
+- ChatGPT/Codex chat history is not directly available unless exported or represented in local files.
+- `/Users/sid/Desktop/portfolio-intel` is the project backing the daily Claude email.
+- The previous completed task in this file is likely related to the enhancements the user remembered.
+
+### Review
+- Found the active daily email app at `/Users/sid/Desktop/portfolio-intel` and confirmed via local Claude memory that the older `/Users/sid/Documents/Claude/Scheduled/daily-market-briefing` skill is inactive/secondary.
+- Imported the older skill's high-signal market-note requirements into the active app prompt: macro landscape, equities/sectors, positioning themes, source quality, specific numbers when available, and no invented exact levels.
+- Hardened `generateBriefing()` so it preloads mandatory research context from previous briefing, recent signals, portfolio, macro, sectors, market news, IPOs, concentration, rebalance recommendations, and smart money before Claude writes the JSON.
+- Broadened Finnhub news input from technology-only to technology + general market news, ranked by portfolio relevance, AI/macro relevance, and source quality.
+
+### Verification
+- `npm run lint` passed with no warnings or errors.
+- `npx tsc --noEmit` passed.
+- `npm run build` passed. Build still prints pre-existing Recharts width/height static-render warnings, but compilation and route generation succeeded.
+- `git diff --check` passed.
+
+### Remaining notes
+- I cannot directly inspect ChatGPT account history from here unless the chat was exported, open in an inspectable browser/app surface, or saved locally.
+- Production email delivery still needs deployed-environment verification because local production env/API credentials are not available in this sandbox.
+
 ## Current Task: 13F Smart Money Tab + Delta-Focused Email Redesign
 
 Plan: ~/.claude/plans/deep-coalescing-blossom.md

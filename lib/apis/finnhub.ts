@@ -18,21 +18,52 @@ export interface NewsArticle {
   url: string;
 }
 
-export async function fetchTechNews(limit = 20): Promise<NewsArticle[]> {
-  const res = await fetch(`${FINNHUB_BASE}/news?category=technology`, {
-    headers: headers(),
-  });
-  if (!res.ok) throw new Error(`Finnhub news error: ${res.status}`);
+function uniqueArticles(articles: NewsArticle[]): NewsArticle[] {
+  const seen = new Set<string>();
+  const unique: NewsArticle[] = [];
 
-  const articles: NewsArticle[] = await res.json();
-  // Filter for AI-related headlines
-  const aiKeywords = /\b(ai|artificial intelligence|machine learning|gpu|nvidia|openai|anthropic|llm|semiconductor|chip|data center)\b/i;
-  const aiArticles = articles.filter(
-    (a) => aiKeywords.test(a.headline) || aiKeywords.test(a.summary)
+  for (const article of articles) {
+    const key = article.url || String(article.id) || article.headline;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    unique.push(article);
+  }
+
+  return unique;
+}
+
+export async function fetchTechNews(limit = 20): Promise<NewsArticle[]> {
+  const [technology, general] = await Promise.all(
+    ["technology", "general"].map(async (category) => {
+      const res = await fetch(`${FINNHUB_BASE}/news?category=${category}`, {
+        headers: headers(),
+      });
+      if (!res.ok) throw new Error(`Finnhub ${category} news error: ${res.status}`);
+      return (await res.json()) as NewsArticle[];
+    })
   );
 
-  // Return AI articles first, then general tech
-  return [...aiArticles, ...articles.filter((a) => !aiArticles.includes(a))].slice(0, limit);
+  const articles = uniqueArticles([...technology, ...general]);
+
+  const aiKeywords = /\b(ai|artificial intelligence|machine learning|gpu|nvidia|openai|anthropic|llm|semiconductor|chip|data center|hyperscaler|cloud|power|nuclear|memory|hbm)\b/i;
+  const macroKeywords = /\b(fed|fomc|rates?|inflation|cpi|ppi|jobs?|payroll|unemployment|gdp|treasury|yield|dollar|oil|gold|copper|china|europe|japan)\b/i;
+  const portfolioKeywords = /\b(amzn|amazon|nvda|nvidia|crwd|crowdstrike|goog|google|alphabet|applovin|app|asts|hood|robinhood|micron|mu|bitcoin|btc)\b/i;
+  const qualitySources = /\b(reuters|bloomberg|financial times|ft|wall street journal|wsj|barron's|seeking alpha|the information|morningstar|marketwatch|investing\.com)\b/i;
+
+  return articles
+    .map((article, index) => {
+      const text = `${article.headline} ${article.summary} ${article.source}`;
+      let score = 0;
+      if (portfolioKeywords.test(text)) score += 5;
+      if (aiKeywords.test(text)) score += 4;
+      if (macroKeywords.test(text)) score += 3;
+      if (qualitySources.test(article.source)) score += 2;
+      score += Math.max(0, 20 - index) / 100;
+      return { article, score };
+    })
+    .sort((a, b) => b.score - a.score)
+    .map(({ article }) => article)
+    .slice(0, limit);
 }
 
 export interface IPO {

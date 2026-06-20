@@ -2,6 +2,8 @@ const FRED_BASE = "https://api.stlouisfed.org/fred/series/observations";
 
 export const FRED_SERIES = {
   FEDFUNDS: "Federal Funds Rate",
+  DGS10: "10-Year Treasury Yield",
+  DGS2: "2-Year Treasury Yield",
   CPIAUCSL: "CPI (All Urban Consumers)",
   PPIFIS: "PPI (Finished Goods)",
   UNRATE: "Unemployment Rate",
@@ -11,6 +13,8 @@ export const FRED_SERIES = {
   UMCSENT: "Consumer Sentiment (UMich)",
   T10YIE: "10Y Breakeven Inflation",
   MORTGAGE30US: "30-Year Mortgage Rate",
+  DCOILWTICO: "WTI Crude Oil",
+  DTWEXBGS: "Trade Weighted US Dollar Index",
 } as const;
 
 export type FredSeriesId = keyof typeof FRED_SERIES;

@@ -8,6 +8,7 @@ import { FRED_SERIES, type FredSeriesId } from "../apis/fred";
 import { BRIEFING_SYSTEM_PROMPT } from "./prompts";
 import { buildSmartMoneyData, buildRecentSignalsData, buildPreviousBriefingData } from "./tool-data";
 import { getThisWeekEarnings } from "../earnings-calendar";
+import { buildMarketHealthData, type DataQuality } from "../market-health";
 
 export interface BriefingOutput {
   date: string;
@@ -69,8 +70,17 @@ export interface BriefingOutput {
   }[];
   tradeSignals: {
     symbol: string;
+    companyName?: string;
     action: string;
     reason: string;
+    currentPrice?: number | null;
+    priceChange1d?: number | null;
+    priceChange5d?: number | null;
+    signalScore?: number | null;
+    signalType?: string;
+    triggerReason?: string;
+    dataQuality?: DataQuality;
+    riskNotes?: string;
     entryRange: string;
     targetPrice: string;
     stopLoss: string;
@@ -136,6 +146,18 @@ const toolHandlers: Record<string, (args: Record<string, unknown>) => Promise<st
     }));
     return JSON.stringify(formatted, null, 2);
   },
+  get_market_health: async (args) => {
+    const symbols = Array.isArray(args.symbols) ? args.symbols.map(String) : undefined;
+    const data = await buildMarketHealthData(symbols);
+    return JSON.stringify(
+      {
+        note: "Market data validation layer. Low dataQuality means do not issue confident signals for that ticker.",
+        data,
+      },
+      null,
+      2
+    );
+  },
   get_ipo_calendar: async () => {
     const ipos = await fetchUpcomingIPOs();
     return JSON.stringify(ipos, null, 2);
@@ -172,6 +194,7 @@ const tools: Anthropic.Tool[] = [
   { name: "get_macro_indicators", description: "Get latest FRED macro data", input_schema: { type: "object" as const, properties: {}, required: [] } },
   { name: "get_sector_performance", description: "Get S&P 500 sector performance", input_schema: { type: "object" as const, properties: {}, required: [] } },
   { name: "get_market_news", description: "Get latest AI and tech market news", input_schema: { type: "object" as const, properties: { limit: { type: "number", description: "Number of articles (default 10)" } }, required: [] } },
+  { name: "get_market_health", description: "Get recent price changes and data-quality checks for portfolio, signal, and benchmark symbols", input_schema: { type: "object" as const, properties: { symbols: { type: "array", items: { type: "string" }, description: "Optional symbols to validate; defaults to tracked portfolio/signals plus SPY/QQQ" } }, required: [] } },
   { name: "get_ipo_calendar", description: "Get upcoming IPOs for the next 3 months", input_schema: { type: "object" as const, properties: {}, required: [] } },
   { name: "get_concentration_report", description: "Analyze portfolio concentration risk", input_schema: { type: "object" as const, properties: {}, required: [] } },
   { name: "get_rebalance_recommendations", description: "Get actionable rebalancing recommendations", input_schema: { type: "object" as const, properties: {}, required: [] } },
@@ -179,6 +202,61 @@ const tools: Anthropic.Tool[] = [
   { name: "get_recent_signals", description: "Get trade signals you issued in the last N days — check this BEFORE proposing signals to avoid repeating recommendations", input_schema: { type: "object" as const, properties: { days: { type: "number", description: "Lookback window in days (default 14)" } }, required: [] } },
   { name: "get_previous_briefing", description: "Get a trimmed view of yesterday's briefing — use it to lead with what CHANGED today and avoid repeating prior advice", input_schema: { type: "object" as const, properties: {}, required: [] } },
 ];
+
+const REQUIRED_RESEARCH_TOOLS = [
+  "get_previous_briefing",
+  "get_recent_signals",
+  "get_portfolio_holdings",
+  "get_macro_indicators",
+  "get_sector_performance",
+  "get_market_news",
+  "get_market_health",
+  "get_ipo_calendar",
+  "get_concentration_report",
+  "get_rebalance_recommendations",
+  "get_smart_money",
+] as const;
+
+async function buildRequiredResearchContext() {
+  const results = await Promise.all(
+    REQUIRED_RESEARCH_TOOLS.map(async (name) => {
+      const startedAt = Date.now();
+      try {
+        const args = name === "get_market_news" ? { limit: 15 } : {};
+        const content = await toolHandlers[name](args);
+        let parsed: unknown = content;
+        try {
+          parsed = JSON.parse(content);
+        } catch {
+          // Keep raw text for unexpected non-JSON tool output.
+        }
+        return {
+          tool: name,
+          ok: true,
+          elapsedMs: Date.now() - startedAt,
+          data: parsed,
+        };
+      } catch (err) {
+        return {
+          tool: name,
+          ok: false,
+          elapsedMs: Date.now() - startedAt,
+          error: String(err),
+        };
+      }
+    })
+  );
+
+  return JSON.stringify(
+    {
+      note: "Mandatory preloaded research context. Use this first, then call tools again only when you need clarification or fresher detail.",
+      generatedAt: new Date().toISOString(),
+      results,
+    },
+    null,
+    2
+  );
+}
 
 export async function generateBriefing(): Promise<BriefingOutput> {
   const today = new Date().toISOString().split("T")[0];
@@ -197,10 +275,12 @@ export async function generateBriefing(): Promise<BriefingOutput> {
         ? `Today is Friday — include dayOfWeekFlavor type "week-recap": how the week's calls and themes played out, what resolved, what to watch next week.`
         : `Today is ${weekday} — keep it lean; omit dayOfWeekFlavor.`;
 
+  const requiredResearchContext = await buildRequiredResearchContext();
+
   const messages: Anthropic.MessageParam[] = [
     {
       role: "user",
-      content: `Today is ${today} (${weekday}). Generate my daily market briefing.\n\n${flavorHint}\n\nUse the available tools to gather data (start with get_previous_briefing and get_recent_signals), then respond with ONLY a JSON object (no preamble, no code fences, no explanation before or after). The JSON must match this schema: { date, whatChanged: { summary, items: [] }, allocationTriggered: boolean, smartMoney?: { hasNewFilings: boolean, highlights: [] }, dayOfWeekFlavor?: { type: "week-ahead"|"week-recap"|"lean", content: [] }, marketOverview: { summary, indexMoves: [{name, change}] }, newsHeadlines: [{title, source, relevance, url?}], portfolioPerformance: { totalValue, dayChange, dayChangePct, topMovers: [{symbol, changePct}] }, concentrationRisk: { level, hhi, topPosition: {symbol, weight}, recommendations: [] }, allocationRecommendations: { amznTrim, semisAction, cashDeployment, sectorShifts: [] }, sectorRotation: { bullish: [], bearish: [], signals: [] }, upcomingIpos: [{name, date, sector, relevance}], tradeSignals: [{symbol, action, reason, entryRange, targetPrice, stopLoss, timeframe, confidence}], disclaimer }. Keep summaries concise. Limit to top 5 news, top 5 IPOs, top 5 trade signals.`,
+      content: `Today is ${today} (${weekday}). Generate my daily market briefing.\n\n${flavorHint}\n\nThe core research has already been preloaded below so the briefing cannot omit required inputs. Treat any failed tool result as a data-availability caveat, not permission to invent missing facts.\n\n<required_research_context>\n${requiredResearchContext}\n</required_research_context>\n\nYou may call the available tools again for clarification. If you do, start with get_previous_briefing and get_recent_signals. Respond with ONLY a JSON object (no preamble, no code fences, no explanation before or after). The JSON must match this schema: { date, whatChanged: { summary, items: [] }, allocationTriggered: boolean, smartMoney?: { hasNewFilings: boolean, highlights: [] }, dayOfWeekFlavor?: { type: "week-ahead"|"week-recap"|"lean", content: [] }, marketOverview: { summary, indexMoves: [{name, change}] }, newsHeadlines: [{title, source, relevance, url?}], portfolioPerformance: { totalValue, dayChange, dayChangePct, topMovers: [{symbol, changePct}] }, concentrationRisk: { level, hhi, topPosition: {symbol, weight}, recommendations: [] }, allocationRecommendations: { amznTrim, semisAction, cashDeployment, sectorShifts: [] }, sectorRotation: { bullish: [], bearish: [], signals: [] }, upcomingIpos: [{name, date, sector, relevance}], tradeSignals: [{symbol, companyName?, action, reason, currentPrice?, priceChange1d?, priceChange5d?, signalScore?, signalType?, triggerReason?, dataQuality?, riskNotes?, entryRange, targetPrice, stopLoss, timeframe, confidence}], disclaimer }. Keep summaries concise. Limit to top 5 news, top 5 IPOs, top 5 trade signals.`,
     },
   ];
 
@@ -300,14 +380,40 @@ function parseBriefingResponse(text: string, today: string): BriefingOutput {
 function normalizeTradeSignal(s: Record<string, unknown>): BriefingOutput["tradeSignals"][number] {
   return {
     symbol: String(s.symbol ?? ""),
+    companyName: optionalString(s.companyName ?? s.company_name),
     action: String(s.action ?? ""),
     reason: String(s.reason ?? s.thesis ?? s.rationale ?? s.variantPerception ?? ""),
+    currentPrice: optionalNumber(s.currentPrice ?? s.current_price),
+    priceChange1d: optionalNumber(s.priceChange1d ?? s.price_change_1d),
+    priceChange5d: optionalNumber(s.priceChange5d ?? s.price_change_5d),
+    signalScore: optionalNumber(s.signalScore ?? s.signal_score),
+    signalType: optionalString(s.signalType ?? s.signal_type),
+    triggerReason: optionalString(s.triggerReason ?? s.trigger_reason),
+    dataQuality: normalizeDataQuality(s.dataQuality ?? s.data_quality),
+    riskNotes: optionalString(s.riskNotes ?? s.risk_notes),
     entryRange: String(s.entryRange ?? ""),
     targetPrice: String(s.targetPrice ?? ""),
     stopLoss: String(s.stopLoss ?? ""),
     timeframe: String(s.timeframe ?? ""),
     confidence: String(s.confidence ?? "medium"),
   };
+}
+
+function optionalString(v: unknown): string | undefined {
+  if (v === null || v === undefined || v === "") return undefined;
+  return String(v);
+}
+
+function optionalNumber(v: unknown): number | null | undefined {
+  if (v === null || v === undefined || v === "") return undefined;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+function normalizeDataQuality(v: unknown): DataQuality | undefined {
+  const q = String(v ?? "").toLowerCase();
+  if (q === "high" || q === "medium" || q === "low") return q;
+  return undefined;
 }
 
 function fallbackBriefing(today: string): BriefingOutput {

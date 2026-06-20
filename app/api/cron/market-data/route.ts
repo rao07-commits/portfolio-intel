@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { initDB, upsertMacro, upsertMarketData, getHoldings } from "@/lib/db";
 import { fetchAllFredSeries } from "@/lib/apis/fred";
 import { fetchYahooQuotesBatch } from "@/lib/apis/yahoo-finance";
+import { BENCHMARK_SYMBOLS } from "@/lib/market-health";
 
 export const maxDuration = 300;
 export const dynamic = "force-dynamic";
@@ -27,9 +28,14 @@ export async function GET(req: NextRequest) {
 
     // 2. Fetch market data for portfolio holdings
     const holdings = await getHoldings();
-    const symbols = holdings
-      .filter((h) => h.asset_type === "stock" || h.asset_type === "etf")
-      .map((h) => h.symbol);
+    const symbols = Array.from(
+      new Set([
+        ...holdings
+          .filter((h) => h.asset_type === "stock" || h.asset_type === "etf")
+          .map((h) => h.symbol),
+        ...BENCHMARK_SYMBOLS,
+      ])
+    );
     console.log("Symbols to fetch:", symbols);
 
     const quotes = await fetchYahooQuotesBatch(symbols);

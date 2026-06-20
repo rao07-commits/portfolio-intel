@@ -7,6 +7,7 @@ import { fetchTechNews, fetchUpcomingIPOs } from "../apis/finnhub";
 import { fetchSectorPerformance } from "../apis/alpha-vantage";
 import { FRED_SERIES, type FredSeriesId } from "../apis/fred";
 import { buildSmartMoneyData, buildRecentSignalsData, buildPreviousBriefingData } from "./tool-data";
+import { buildMarketHealthData } from "../market-health";
 
 async function buildPortfolioWithPrices() {
   const [holdings, priceRows] = await Promise.all([getHoldings(), getLatestPrices()]);
@@ -95,6 +96,30 @@ const getMarketNews = tool(
     }));
     return {
       content: [{ type: "text" as const, text: JSON.stringify(formatted, null, 2) }],
+    };
+  }
+);
+
+const getMarketHealth = tool(
+  "get_market_health",
+  "Get recent price changes and data-quality checks for portfolio, signal, and benchmark symbols",
+  { symbols: z.array(z.string()).optional().describe("Optional symbols to validate; defaults to tracked portfolio/signals plus SPY/QQQ") },
+  async (args) => {
+    const data = await buildMarketHealthData(args.symbols);
+    return {
+      content: [
+        {
+          type: "text" as const,
+          text: JSON.stringify(
+            {
+              note: "Market data validation layer. Low dataQuality means do not issue confident signals for that ticker.",
+              data,
+            },
+            null,
+            2
+          ),
+        },
+      ],
     };
   }
 );
@@ -189,6 +214,7 @@ export const portfolioServer = createSdkMcpServer({
     getMacroIndicators,
     getSectorPerformance,
     getMarketNews,
+    getMarketHealth,
     getIpoCalendar,
     getConcentrationReport,
     getRebalanceRecommendations,

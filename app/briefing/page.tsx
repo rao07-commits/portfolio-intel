@@ -48,6 +48,12 @@ function renderValue(v: unknown): string {
   return String(v);
 }
 
+function formatPct(v: unknown): string {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return "";
+  return `${n > 0 ? "+" : ""}${n.toFixed(1)}%`;
+}
+
 function BriefingView({ briefing, date }: { briefing: BriefingOutput; date: string }) {
   return (
     <div className="space-y-6">
@@ -148,9 +154,22 @@ function BriefingView({ briefing, date }: { briefing: BriefingOutput; date: stri
                 <div className="flex items-center gap-2 mb-2">
                   <span className={`px-2 py-0.5 rounded text-xs font-bold uppercase border ${signalColor(s.action)}`}>{s.action}</span>
                   <span className="text-white font-bold">{s.symbol}</span>
+                  {s.companyName && <span className="text-slate-500 text-xs">{s.companyName}</span>}
                   <span className="ml-auto text-slate-500 text-xs">{s.confidence} confidence</span>
                 </div>
+                {(s.signalScore !== undefined || s.signalType || s.currentPrice !== undefined || s.priceChange1d !== undefined || s.priceChange5d !== undefined || s.dataQuality) && (
+                  <div className="flex gap-2 flex-wrap text-xs text-slate-500 mb-2">
+                    {s.signalScore !== undefined && s.signalScore !== null && <span>Score {Number(s.signalScore).toFixed(0)}</span>}
+                    {s.signalType && <span>{s.signalType}</span>}
+                    {s.currentPrice !== undefined && s.currentPrice !== null && <span>${Number(s.currentPrice).toFixed(2)}</span>}
+                    {s.priceChange1d !== undefined && s.priceChange1d !== null && <span>1D {formatPct(s.priceChange1d)}</span>}
+                    {s.priceChange5d !== undefined && s.priceChange5d !== null && <span>5D {formatPct(s.priceChange5d)}</span>}
+                    {s.dataQuality && <span>Data: {s.dataQuality}</span>}
+                  </div>
+                )}
+                {s.triggerReason && <p className="text-slate-300 text-sm mb-2"><span className="text-slate-500">Trigger:</span> {s.triggerReason}</p>}
                 <p className="text-slate-400 text-sm mb-2">{s.reason}</p>
+                {s.riskNotes && <p className="text-slate-500 text-sm mb-2"><span className="text-slate-400">Risk:</span> {s.riskNotes}</p>}
                 {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                 {(s as Record<string, any>).marketMispricing && (
                   <div className="bg-amber-500/5 border border-amber-500/20 rounded-lg p-3 mb-2">

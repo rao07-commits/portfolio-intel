@@ -52,6 +52,19 @@ function safe(v: unknown): string {
   return String(v);
 }
 
+function fmtPct(v: unknown): string {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return "";
+  return `${n > 0 ? "+" : ""}${n.toFixed(1)}%`;
+}
+
+function dataQualityColor(q: string | undefined): string {
+  if (q === "high") return "#22c55e";
+  if (q === "medium") return "#eab308";
+  if (q === "low") return "#ef4444";
+  return "#64748b";
+}
+
 // Concentration math is only meaningful when holdings have real quantities
 // (all-zero quantities → hhi 0 / weight NaN). Gate the section instead of
 // rendering "HHI: NaN · Top: AMZN at NaN%".
@@ -147,12 +160,23 @@ function renderTradeSignals(briefing: BriefingOutput): string {
     .map((s) => {
       const raw = s.reason ?? (s as Record<string, unknown>).thesis ?? (s as Record<string, unknown>).rationale;
       const reason = raw ? renderValue(raw) : "";
+      const meta: string[] = [];
+      if (s.signalScore !== undefined && s.signalScore !== null) meta.push(`Score ${Number(s.signalScore).toFixed(0)}`);
+      if (s.signalType) meta.push(s.signalType);
+      if (s.currentPrice !== undefined && s.currentPrice !== null) meta.push(`Price $${Number(s.currentPrice).toFixed(2)}`);
+      if (s.priceChange1d !== undefined && s.priceChange1d !== null) meta.push(`1D ${fmtPct(s.priceChange1d)}`);
+      if (s.priceChange5d !== undefined && s.priceChange5d !== null) meta.push(`5D ${fmtPct(s.priceChange5d)}`);
+      const dq = s.dataQuality;
       return `
       <tr style="${ROW}">
         <td style="padding:10px 16px;">
           <span style="color:${signalColor(s.action)};font-weight:700;font-size:14px;">${s.action.toUpperCase()}</span>
           <span style="color:#f1f5f9;font-weight:600;margin-left:8px;">${s.symbol}</span>
+          ${s.companyName ? `<span style="color:#64748b;font-size:12px;margin-left:6px;">${s.companyName}</span>` : ""}
+          ${meta.length > 0 || dq ? `<div style="color:#64748b;font-size:11px;margin-top:4px;">${meta.join(" &middot; ")}${dq ? `${meta.length > 0 ? " &middot; " : ""}<span style="color:${dataQualityColor(dq)};font-weight:700;">Data: ${dq}</span>` : ""}</div>` : ""}
+          ${s.triggerReason ? `<div style="color:#cbd5e1;font-size:12px;margin-top:4px;"><strong>Trigger:</strong> ${s.triggerReason}</div>` : ""}
           ${reason ? `<div style="color:#94a3b8;font-size:12px;margin-top:4px;">${reason}</div>` : ""}
+          ${s.riskNotes ? `<div style="color:#94a3b8;font-size:12px;margin-top:4px;"><strong>Risk:</strong> ${s.riskNotes}</div>` : ""}
           <div style="color:#64748b;font-size:11px;margin-top:4px;">
             Entry: ${safe(s.entryRange)} &middot; Target: ${safe(s.targetPrice)} &middot; Stop: ${safe(s.stopLoss)} &middot; ${safe(s.timeframe)} &middot; Confidence: ${safe(s.confidence)}
           </div>
