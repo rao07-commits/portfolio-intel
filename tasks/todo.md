@@ -28,7 +28,7 @@ Remote agents should use this file to plan non-trivial tasks, track progress, an
 - [x] Replace stale/untracked `skills.md` with current portfolio briefing instructions from project context, user discussion, and visible ChatGPT recommendations.
 - [x] Wire the daily briefing runtime to append `skills.md` to Claude's system prompt.
 - [x] Add Vercel output tracing so `skills.md` is included in the serverless function bundle.
-- [x] Verify lint, TypeScript, production build, then commit, push, and deploy.
+- [x] Verify lint, TypeScript, production build, then commit and push.
 
 ### Review
 - `skills.md` existed locally but was untracked and only referenced by `CLAUDE.md`; the live daily email did not read it.
@@ -36,6 +36,8 @@ Remote agents should use this file to plan non-trivial tasks, track progress, an
 - `lib/agent/briefing-agent.ts` now reads root `skills.md` and appends it to the system prompt used for the daily briefing.
 - `next.config.mjs` includes `skills.md` in the `/api/cron/briefing` function trace for Vercel.
 - Verification passed: `npm run lint`, `npx tsc --noEmit`, `npm run build`, and `git diff --check`.
+- GitHub push succeeded at commit `1fe62c3`.
+- Vercel production was verified after GitHub auto-deploy: alias `portfolio-intel-pearl.vercel.app` is `Ready`, and build logs show `Cloning github.com/rao07-commits/portfolio-intel (Branch: main, Commit: 1fe62c3)`.
 
 ## Current Task: ChatGPT Performance Tracker Improvements
 
