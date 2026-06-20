@@ -15,7 +15,11 @@ Remote agents should use this file to plan non-trivial tasks, track progress, an
 - Repo remote is `https://github.com/rao07-commits/portfolio-intel.git` on branch `main`.
 - Vercel project is already linked via `.vercel/project.json`: project `portfolio-intel`.
 - `vercel whoami` succeeds as `raosiddarth07-5712`, so this machine can likely deploy with Vercel CLI.
-- Production deployment has not been run yet. Current changes are still local until committed/pushed or deployed with `vercel deploy --prod`.
+- GitHub push initially failed due to stale HTTPS credentials; `gh auth setup-git` fixed Git credential routing.
+- Remote `main` had one newer commit (`a2c4d5b`), so the daily briefing commit was rebased cleanly before push.
+- Pushed commit `03936e3 Improve daily briefing signal data quality` to `origin/main`.
+- Production Vercel deploy succeeded: deployment `dpl_D6XUkdqZ4pPmsY3x8yM1cCErprF7`, ready state `READY`, alias `https://portfolio-intel-pearl.vercel.app`.
+- Cron schedule is weekdays only: market data at `0 13 * * 1-5`, briefing at `30 13 * * 1-5`.
 
 ## Current Task: ChatGPT Performance Tracker Improvements
 
