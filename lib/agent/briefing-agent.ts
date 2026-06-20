@@ -1,4 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { readFileSync } from "fs";
+import { join } from "path";
 import { getHoldings, getLatestMacro, getMacroSeries, getLatestPrices } from "../db";
 import { computePortfolio, computeSectorExposure } from "../portfolio";
 import { computeConcentration, generateRebalanceRecommendations, interpretMacroData } from "../allocation";
@@ -9,6 +11,15 @@ import { BRIEFING_SYSTEM_PROMPT } from "./prompts";
 import { buildSmartMoneyData, buildRecentSignalsData, buildPreviousBriefingData } from "./tool-data";
 import { getThisWeekEarnings } from "../earnings-calendar";
 import { buildMarketHealthData, type DataQuality } from "../market-health";
+
+function loadPortfolioBriefingSkills(): string {
+  try {
+    return readFileSync(join(process.cwd(), "skills.md"), "utf8");
+  } catch (err) {
+    console.warn("Unable to load skills.md briefing playbook:", err);
+    return "";
+  }
+}
 
 export interface BriefingOutput {
   date: string;
@@ -276,6 +287,7 @@ export async function generateBriefing(): Promise<BriefingOutput> {
         : `Today is ${weekday} — keep it lean; omit dayOfWeekFlavor.`;
 
   const requiredResearchContext = await buildRequiredResearchContext();
+  const portfolioBriefingSkills = loadPortfolioBriefingSkills();
 
   const messages: Anthropic.MessageParam[] = [
     {
@@ -291,7 +303,7 @@ export async function generateBriefing(): Promise<BriefingOutput> {
     const response = await client.messages.create({
       model: "claude-sonnet-4-6",
       max_tokens: 16384,
-      system: BRIEFING_SYSTEM_PROMPT,
+      system: `${BRIEFING_SYSTEM_PROMPT}\n\n## Portfolio Briefing Playbook\n${portfolioBriefingSkills}`,
       tools,
       messages,
     });
