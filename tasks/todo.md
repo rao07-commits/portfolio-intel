@@ -2,6 +2,19 @@
 
 Remote agents should use this file to plan non-trivial tasks, track progress, and record the verification performed before reporting completion.
 
+## Current Task: Make New Briefing Framework Visible
+
+### Plan
+- [x] Confirm why the production page still looked unchanged.
+- [x] Record the correction pattern in `tasks/lessons.md`.
+- [x] Add a visible archived-briefing state for records generated before the new investor-discipline JSON fields existed.
+- [ ] Run lint, TypeScript, production build, and diff checks.
+- [ ] Commit, push, and verify Vercel production.
+
+### Findings
+- The deployment was live, but `/briefing` was rendering the latest stored June 19 briefing. That stored JSON predates the new fields, so the new sections were correctly coded but invisible for the currently selected archive record.
+- Local `.env.local` does not contain `CRON_SECRET`, `ANTHROPIC_API_KEY`, `RESEND_API_KEY`, or `DIGEST_EMAIL`, so I cannot safely generate a fresh production briefing locally without pulling or using production secrets.
+
 ## Current Task: Briefing Investor Discipline Sections
 
 ### Plan

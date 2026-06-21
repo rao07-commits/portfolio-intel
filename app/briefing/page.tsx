@@ -82,13 +82,79 @@ function formatPct(v: unknown): string {
   return `${n > 0 ? "+" : ""}${n.toFixed(1)}%`;
 }
 
+const INVESTOR_DISCIPLINE_MODULES = [
+  {
+    name: "Data Health",
+    detail: "Freshness, missing inputs, stale prices, and confidence limits.",
+  },
+  {
+    name: "Action Discipline",
+    detail: "Observation, watch, actionable, blocked, expired, or do-not-act states.",
+  },
+  {
+    name: "Catalyst Calendar",
+    detail: "Macro, Fed, earnings, IPO, and company events tied to portfolio relevance.",
+  },
+  {
+    name: "Thesis Ledger",
+    detail: "Active theses with catalyst, invalidation, next review, and confidence.",
+  },
+  {
+    name: "Research Quarantine",
+    detail: "Unresolved tickers, weak claims, rumors, and evidence still needed.",
+  },
+  {
+    name: "Source Quality",
+    detail: "Primary, high, medium, or low rating for evidence behind claims.",
+  },
+];
+
+function hasInvestorDisciplineFields(briefing: BriefingOutput): boolean {
+  return Boolean(
+    briefing.dataHealth ||
+      briefing.actionDiscipline ||
+      briefing.portfolioRiskDashboard ||
+      (briefing.catalystCalendar && briefing.catalystCalendar.length > 0) ||
+      (briefing.thesisLedger && briefing.thesisLedger.length > 0) ||
+      (briefing.researchBacklog && briefing.researchBacklog.length > 0) ||
+      briefing.sourceQuality ||
+      briefing.tradeSignals?.some((s) => s.actionStatus || s.variantPerception || s.sourceQuality)
+  );
+}
+
 function BriefingView({ briefing, date }: { briefing: BriefingOutput; date: string }) {
+  const hasNewFrameworkData = hasInvestorDisciplineFields(briefing);
+
   return (
     <div className="space-y-6">
       <div className="border-b border-slate-700 pb-4">
         <h2 className="text-2xl font-bold text-white">{formatDate(date)}</h2>
         <p className="text-slate-500 text-sm mt-1">Daily Market Briefing</p>
       </div>
+
+      {!hasNewFrameworkData && (
+        <section className="bg-slate-800 rounded-xl p-6 border border-blue-400/30">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between mb-4">
+            <div>
+              <h3 className="text-lg font-semibold text-white">Investor Discipline Framework</h3>
+              <p className="text-slate-400 text-sm mt-1">
+                This archived briefing was generated before the new sections were added. Future briefings will populate the modules below with live research.
+              </p>
+            </div>
+            <span className="self-start rounded border border-yellow-400/30 bg-yellow-400/10 px-2 py-1 text-xs font-bold uppercase text-yellow-400">
+              Pending next run
+            </span>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {INVESTOR_DISCIPLINE_MODULES.map((module) => (
+              <div key={module.name} className="border border-slate-700 rounded-lg p-3">
+                <div className="text-white text-sm font-semibold">{module.name}</div>
+                <div className="text-slate-500 text-xs mt-1">{module.detail}</div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* What's New */}
       {(briefing.whatChanged?.summary || briefing.whatChanged?.items?.length > 0) && (
