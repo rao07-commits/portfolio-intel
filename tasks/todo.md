@@ -10,11 +10,27 @@ Remote agents should use this file to plan non-trivial tasks, track progress, an
 - [x] Update prompt/playbook instructions so the daily Claude-generated JSON actually populates those fields.
 - [x] Render the new fields in both the email digest and `/briefing` page.
 - [x] Add normalization/defaults so older briefings and partial model outputs still render safely.
-- [ ] Run lint, TypeScript, production build, and diff checks.
-- [ ] Push/deploy if verification passes and add the production briefing URL to Chrome bookmarks if browser automation is available.
+- [x] Run lint, TypeScript, production build, and diff checks.
+- [x] Push/deploy if verification passes and add the production briefing URL to Chrome bookmarks if browser automation is available.
 
 ### Privacy Boundary
 - Tax-aware rebalancing is intentionally out of scope. Accurate tax-lot handling would require brokerage data or manual trade/cost-basis exports, and the user does not want that data in this system.
+
+### Review
+- Added additive briefing JSON fields for `dataHealth`, `actionDiscipline`, `portfolioRiskDashboard`, `catalystCalendar`, `thesisLedger`, `researchBacklog`, `sourceQuality`, plus per-signal `actionStatus`, `variantPerception`, and `sourceQuality`.
+- Updated the Claude briefing prompt and runtime `skills.md` playbook so the daily email asks for investor-discipline sections without requiring brokerage/tax-lot data.
+- Updated `lib/email.ts` to render Data Health, Action Discipline, Catalyst Calendar, Thesis Ledger, Research Quarantine, Portfolio Risk Dashboard, and Source Quality.
+- Updated `/briefing` so the browser archive renders the same new fields when future briefings contain them.
+- Added parser normalization/defaults so older briefings and partial model output continue to render safely.
+- Pushed commit `1446159 Add investor discipline briefing sections` to `origin/main`.
+- Verified Vercel production deployment `dpl_Dt3sbVmwvHCynwyK8NB8AAyYRKg7` is `Ready`, alias `https://portfolio-intel-pearl.vercel.app`, cloned commit `1446159`.
+- Added Chrome bookmark `Portfolio Briefing` for `https://portfolio-intel-pearl.vercel.app/briefing`.
+
+### Verification
+- `npm run lint` passed.
+- `npx tsc --noEmit` passed.
+- `npm run build` passed. It still prints the pre-existing Recharts width/height warnings during static generation, but compilation and route generation succeed.
+- `git diff --check` passed.
 
 ## Current Task: Deployment Access Check
 
