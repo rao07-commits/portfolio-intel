@@ -23,10 +23,30 @@ function loadPortfolioBriefingSkills(): string {
 
 export interface BriefingOutput {
   date: string;
+  dataHealth?: {
+    overall: DataQuality | "unknown";
+    items: {
+      name: string;
+      status: DataQuality | "missing" | "stale" | "unknown";
+      detail: string;
+      updatedAt?: string;
+    }[];
+    warnings: string[];
+  };
   // Delta-focused lead — what is genuinely different vs yesterday's briefing
   whatChanged: {
     summary: string;
     items: string[];
+  };
+  actionDiscipline?: {
+    status: "no_action" | "watch" | "triggered" | "expired" | "blocked";
+    summary: string;
+    actions: {
+      label: string;
+      status: "observation" | "watch" | "actionable" | "do_not_act" | "expired" | "blocked";
+      trigger?: string;
+      detail: string;
+    }[];
   };
   // False = nothing crossed a trigger today (position cap, new cash, macro flip)
   allocationTriggered: boolean;
@@ -62,6 +82,12 @@ export interface BriefingOutput {
     topPosition: { symbol: string; weight: number };
     recommendations: string[];
   };
+  portfolioRiskDashboard?: {
+    summary: string;
+    exposures: { name: string; value: string; riskLevel?: string; note?: string }[];
+    riskFlags: string[];
+    scenarios: { scenario: string; potentialImpact: string; watchItem?: string }[];
+  };
   allocationRecommendations: {
     amznTrim: string;
     semisAction: string;
@@ -79,11 +105,47 @@ export interface BriefingOutput {
     sector: string;
     relevance: string;
   }[];
+  catalystCalendar?: {
+    date: string;
+    event: string;
+    type: "macro" | "earnings" | "company" | "ipo" | "fed" | "economic" | "other";
+    symbols?: string[];
+    source?: string;
+    confidence: "high" | "medium" | "low";
+    portfolioRelevance: string;
+  }[];
+  thesisLedger?: {
+    symbol: string;
+    thesis: string;
+    status: "active" | "watch" | "strengthening" | "weakening" | "invalidated" | "expired";
+    catalyst?: string;
+    invalidation?: string;
+    nextReview?: string;
+    confidence?: "high" | "medium" | "low";
+  }[];
+  researchBacklog?: {
+    topic: string;
+    priority: "high" | "medium" | "low";
+    reason: string;
+    neededEvidence: string;
+  }[];
+  sourceQuality?: {
+    overall: "high" | "medium" | "low" | "mixed";
+    notes: string[];
+    sources: {
+      source: string;
+      rating: "primary" | "high" | "medium" | "low";
+      use: string;
+      url?: string;
+    }[];
+  };
   tradeSignals: {
     symbol: string;
     companyName?: string;
     action: string;
+    actionStatus?: "observation" | "watch" | "actionable" | "do_not_act" | "expired" | "blocked";
     reason: string;
+    variantPerception?: string;
     currentPrice?: number | null;
     priceChange1d?: number | null;
     priceChange5d?: number | null;
@@ -91,6 +153,7 @@ export interface BriefingOutput {
     signalType?: string;
     triggerReason?: string;
     dataQuality?: DataQuality;
+    sourceQuality?: "primary" | "high" | "medium" | "low";
     riskNotes?: string;
     entryRange: string;
     targetPrice: string;
@@ -292,7 +355,7 @@ export async function generateBriefing(): Promise<BriefingOutput> {
   const messages: Anthropic.MessageParam[] = [
     {
       role: "user",
-      content: `Today is ${today} (${weekday}). Generate my daily market briefing.\n\n${flavorHint}\n\nThe core research has already been preloaded below so the briefing cannot omit required inputs. Treat any failed tool result as a data-availability caveat, not permission to invent missing facts.\n\n<required_research_context>\n${requiredResearchContext}\n</required_research_context>\n\nYou may call the available tools again for clarification. If you do, start with get_previous_briefing and get_recent_signals. Respond with ONLY a JSON object (no preamble, no code fences, no explanation before or after). The JSON must match this schema: { date, whatChanged: { summary, items: [] }, allocationTriggered: boolean, smartMoney?: { hasNewFilings: boolean, highlights: [] }, dayOfWeekFlavor?: { type: "week-ahead"|"week-recap"|"lean", content: [] }, marketOverview: { summary, indexMoves: [{name, change}] }, newsHeadlines: [{title, source, relevance, url?}], portfolioPerformance: { totalValue, dayChange, dayChangePct, topMovers: [{symbol, changePct}] }, concentrationRisk: { level, hhi, topPosition: {symbol, weight}, recommendations: [] }, allocationRecommendations: { amznTrim, semisAction, cashDeployment, sectorShifts: [] }, sectorRotation: { bullish: [], bearish: [], signals: [] }, upcomingIpos: [{name, date, sector, relevance}], tradeSignals: [{symbol, companyName?, action, reason, currentPrice?, priceChange1d?, priceChange5d?, signalScore?, signalType?, triggerReason?, dataQuality?, riskNotes?, entryRange, targetPrice, stopLoss, timeframe, confidence}], disclaimer }. Keep summaries concise. Limit to top 5 news, top 5 IPOs, top 5 trade signals.`,
+      content: `Today is ${today} (${weekday}). Generate my daily market briefing.\n\n${flavorHint}\n\nThe core research has already been preloaded below so the briefing cannot omit required inputs. Treat any failed tool result as a data-availability caveat, not permission to invent missing facts.\n\n<required_research_context>\n${requiredResearchContext}\n</required_research_context>\n\nYou may call the available tools again for clarification. If you do, start with get_previous_briefing and get_recent_signals. Respond with ONLY a JSON object (no preamble, no code fences, no explanation before or after). The JSON must match this schema: { date, dataHealth?: { overall, items: [{name,status,detail,updatedAt?}], warnings: [] }, whatChanged: { summary, items: [] }, actionDiscipline?: { status, summary, actions: [{label,status,trigger?,detail}] }, allocationTriggered: boolean, smartMoney?: { hasNewFilings: boolean, highlights: [] }, dayOfWeekFlavor?: { type: "week-ahead"|"week-recap"|"lean", content: [] }, marketOverview: { summary, indexMoves: [{name, change}] }, newsHeadlines: [{title, source, relevance, url?}], portfolioPerformance: { totalValue, dayChange, dayChangePct, topMovers: [{symbol, changePct}] }, concentrationRisk: { level, hhi, topPosition: {symbol, weight}, recommendations: [] }, portfolioRiskDashboard?: { summary, exposures: [{name,value,riskLevel?,note?}], riskFlags: [], scenarios: [{scenario,potentialImpact,watchItem?}] }, allocationRecommendations: { amznTrim, semisAction, cashDeployment, sectorShifts: [] }, sectorRotation: { bullish: [], bearish: [], signals: [] }, upcomingIpos: [{name, date, sector, relevance}], catalystCalendar?: [{date,event,type,symbols?,source?,confidence,portfolioRelevance}], thesisLedger?: [{symbol,thesis,status,catalyst?,invalidation?,nextReview?,confidence?}], researchBacklog?: [{topic,priority,reason,neededEvidence}], sourceQuality?: { overall, notes: [], sources: [{source,rating,use,url?}] }, tradeSignals: [{symbol, companyName?, action, actionStatus?, reason, variantPerception?, currentPrice?, priceChange1d?, priceChange5d?, signalScore?, signalType?, triggerReason?, dataQuality?, sourceQuality?, riskNotes?, entryRange, targetPrice, stopLoss, timeframe, confidence}], disclaimer }. Keep summaries concise. Limit to top 5 news, top 5 IPOs, top 5 trade signals, top 6 catalysts, top 6 thesis ledger entries, and top 5 research backlog items.`,
     },
   ];
 
@@ -376,6 +439,13 @@ function parseBriefingResponse(text: string, today: string): BriefingOutput {
     );
     parsed.whatChanged = parsed.whatChanged || { summary: "", items: [] };
     parsed.allocationTriggered = parsed.allocationTriggered ?? true;
+    parsed.dataHealth = normalizeDataHealth(parsed.dataHealth as unknown as Record<string, unknown> | undefined);
+    parsed.actionDiscipline = normalizeActionDiscipline(parsed.actionDiscipline as unknown as Record<string, unknown> | undefined);
+    parsed.portfolioRiskDashboard = normalizePortfolioRiskDashboard(parsed.portfolioRiskDashboard as unknown as Record<string, unknown> | undefined);
+    parsed.catalystCalendar = normalizeCatalystCalendar(parsed.catalystCalendar as unknown[]);
+    parsed.thesisLedger = normalizeThesisLedger(parsed.thesisLedger as unknown[]);
+    parsed.researchBacklog = normalizeResearchBacklog(parsed.researchBacklog as unknown[]);
+    parsed.sourceQuality = normalizeSourceQuality(parsed.sourceQuality as unknown as Record<string, unknown> | undefined);
     return parsed;
   } catch {
     // If JSON parsing fails, return a briefing with the raw text as summary
@@ -390,18 +460,24 @@ function parseBriefingResponse(text: string, today: string): BriefingOutput {
 // The model sometimes emits the signal thesis under a different key (thesis/rationale/
 // variantPerception) — coerce to `reason` so the email never renders "undefined".
 function normalizeTradeSignal(s: Record<string, unknown>): BriefingOutput["tradeSignals"][number] {
+  const dataQuality = normalizeDataQuality(s.dataQuality ?? s.data_quality);
+  const action = String(s.action ?? "");
+  const actionStatus = normalizeActionStatus(s.actionStatus ?? s.action_status ?? s.status, action, dataQuality);
   return {
     symbol: String(s.symbol ?? ""),
     companyName: optionalString(s.companyName ?? s.company_name),
-    action: String(s.action ?? ""),
+    action,
+    actionStatus,
     reason: String(s.reason ?? s.thesis ?? s.rationale ?? s.variantPerception ?? ""),
+    variantPerception: optionalString(s.variantPerception ?? s.variant_perception ?? s.marketMispricing ?? s.market_mispricing),
     currentPrice: optionalNumber(s.currentPrice ?? s.current_price),
     priceChange1d: optionalNumber(s.priceChange1d ?? s.price_change_1d),
     priceChange5d: optionalNumber(s.priceChange5d ?? s.price_change_5d),
     signalScore: optionalNumber(s.signalScore ?? s.signal_score),
     signalType: optionalString(s.signalType ?? s.signal_type),
     triggerReason: optionalString(s.triggerReason ?? s.trigger_reason),
-    dataQuality: normalizeDataQuality(s.dataQuality ?? s.data_quality),
+    dataQuality,
+    sourceQuality: normalizeSignalSourceQuality(s.sourceQuality ?? s.source_quality),
     riskNotes: optionalString(s.riskNotes ?? s.risk_notes),
     entryRange: String(s.entryRange ?? ""),
     targetPrice: String(s.targetPrice ?? ""),
@@ -426,6 +502,226 @@ function normalizeDataQuality(v: unknown): DataQuality | undefined {
   const q = String(v ?? "").toLowerCase();
   if (q === "high" || q === "medium" || q === "low") return q;
   return undefined;
+}
+
+function normalizeDataHealth(v: Record<string, unknown> | undefined): BriefingOutput["dataHealth"] | undefined {
+  if (!v) return undefined;
+  const items = Array.isArray(v.items)
+    ? v.items.map((item) => {
+        const obj = asRecord(item);
+        return {
+          name: String(obj.name ?? ""),
+          status: normalizeDataHealthStatus(obj.status),
+          detail: String(obj.detail ?? ""),
+          updatedAt: optionalString(obj.updatedAt ?? obj.updated_at),
+        };
+      }).filter((item) => item.name || item.detail)
+    : [];
+  return {
+    overall: normalizeOverallDataQuality(v.overall),
+    items,
+    warnings: toStringArray(v.warnings),
+  };
+}
+
+function normalizeActionDiscipline(v: Record<string, unknown> | undefined): BriefingOutput["actionDiscipline"] | undefined {
+  if (!v) return undefined;
+  const actions = Array.isArray(v.actions)
+    ? v.actions.map((item) => {
+        const obj = asRecord(item);
+        return {
+          label: String(obj.label ?? obj.name ?? ""),
+          status: normalizeActionStatus(obj.status),
+          trigger: optionalString(obj.trigger),
+          detail: String(obj.detail ?? obj.reason ?? ""),
+        };
+      }).filter((item) => item.label || item.detail)
+    : [];
+  return {
+    status: normalizeActionDisciplineStatus(v.status),
+    summary: String(v.summary ?? ""),
+    actions,
+  };
+}
+
+function normalizePortfolioRiskDashboard(v: Record<string, unknown> | undefined): BriefingOutput["portfolioRiskDashboard"] | undefined {
+  if (!v) return undefined;
+  const exposures = Array.isArray(v.exposures)
+    ? v.exposures.map((item) => {
+        const obj = asRecord(item);
+        return {
+          name: String(obj.name ?? ""),
+          value: String(obj.value ?? ""),
+          riskLevel: optionalString(obj.riskLevel ?? obj.risk_level),
+          note: optionalString(obj.note),
+        };
+      }).filter((item) => item.name || item.value)
+    : [];
+  const scenarios = Array.isArray(v.scenarios)
+    ? v.scenarios.map((item) => {
+        const obj = asRecord(item);
+        return {
+          scenario: String(obj.scenario ?? ""),
+          potentialImpact: String(obj.potentialImpact ?? obj.potential_impact ?? obj.impact ?? ""),
+          watchItem: optionalString(obj.watchItem ?? obj.watch_item),
+        };
+      }).filter((item) => item.scenario || item.potentialImpact)
+    : [];
+  return {
+    summary: String(v.summary ?? ""),
+    exposures,
+    riskFlags: toStringArray(v.riskFlags ?? v.risk_flags),
+    scenarios,
+  };
+}
+
+function normalizeCatalystCalendar(v: unknown[] | undefined): BriefingOutput["catalystCalendar"] {
+  if (!Array.isArray(v)) return [];
+  return v.map((item) => {
+    const obj = asRecord(item);
+    return {
+      date: String(obj.date ?? ""),
+      event: String(obj.event ?? ""),
+      type: normalizeCatalystType(obj.type),
+      symbols: toStringArray(obj.symbols),
+      source: optionalString(obj.source),
+      confidence: normalizeConfidence(obj.confidence),
+      portfolioRelevance: String(obj.portfolioRelevance ?? obj.portfolio_relevance ?? obj.relevance ?? ""),
+    };
+  }).filter((item) => item.date || item.event || item.portfolioRelevance);
+}
+
+function normalizeThesisLedger(v: unknown[] | undefined): BriefingOutput["thesisLedger"] {
+  if (!Array.isArray(v)) return [];
+  return v.map((item) => {
+    const obj = asRecord(item);
+    return {
+      symbol: String(obj.symbol ?? ""),
+      thesis: String(obj.thesis ?? ""),
+      status: normalizeThesisStatus(obj.status),
+      catalyst: optionalString(obj.catalyst),
+      invalidation: optionalString(obj.invalidation),
+      nextReview: optionalString(obj.nextReview ?? obj.next_review),
+      confidence: normalizeConfidence(obj.confidence),
+    };
+  }).filter((item) => item.symbol || item.thesis);
+}
+
+function normalizeResearchBacklog(v: unknown[] | undefined): BriefingOutput["researchBacklog"] {
+  if (!Array.isArray(v)) return [];
+  return v.map((item) => {
+    const obj = asRecord(item);
+    return {
+      topic: String(obj.topic ?? ""),
+      priority: normalizePriority(obj.priority),
+      reason: String(obj.reason ?? ""),
+      neededEvidence: String(obj.neededEvidence ?? obj.needed_evidence ?? obj.evidence ?? ""),
+    };
+  }).filter((item) => item.topic || item.reason || item.neededEvidence);
+}
+
+function normalizeSourceQuality(v: Record<string, unknown> | undefined): BriefingOutput["sourceQuality"] | undefined {
+  if (!v) return undefined;
+  const sources = Array.isArray(v.sources)
+    ? v.sources.map((item) => {
+        const obj = asRecord(item);
+        return {
+          source: String(obj.source ?? ""),
+          rating: normalizeSourceRating(obj.rating),
+          use: String(obj.use ?? obj.usage ?? ""),
+          url: optionalString(obj.url),
+        };
+      }).filter((item) => item.source || item.use)
+    : [];
+  return {
+    overall: normalizeOverallSourceQuality(v.overall),
+    notes: toStringArray(v.notes),
+    sources,
+  };
+}
+
+function asRecord(v: unknown): Record<string, unknown> {
+  return typeof v === "object" && v !== null ? (v as Record<string, unknown>) : {};
+}
+
+function toStringArray(v: unknown): string[] {
+  if (!Array.isArray(v)) return [];
+  return v.filter((item) => item !== null && item !== undefined && item !== "").map(String);
+}
+
+function normalizeOverallDataQuality(v: unknown): DataQuality | "unknown" {
+  const q = normalizeDataQuality(v);
+  return q || "unknown";
+}
+
+function normalizeDataHealthStatus(v: unknown): DataQuality | "missing" | "stale" | "unknown" {
+  const q = normalizeDataQuality(v);
+  if (q) return q;
+  const status = String(v ?? "").toLowerCase();
+  if (status === "missing" || status === "stale") return status;
+  return "unknown";
+}
+
+function normalizeActionDisciplineStatus(v: unknown): NonNullable<BriefingOutput["actionDiscipline"]>["status"] {
+  const status = String(v ?? "").toLowerCase().replace(/ /g, "_");
+  if (status === "no_action" || status === "watch" || status === "triggered" || status === "expired" || status === "blocked") return status;
+  return "watch";
+}
+
+function normalizeActionStatus(
+  v: unknown,
+  action = "",
+  dataQuality?: DataQuality
+): NonNullable<BriefingOutput["actionDiscipline"]>["actions"][number]["status"] {
+  const status = String(v ?? "").toLowerCase().replace(/ /g, "_");
+  if (status === "observation" || status === "watch" || status === "actionable" || status === "do_not_act" || status === "expired" || status === "blocked") return status;
+  if (dataQuality === "low") return "watch";
+  const a = action.toLowerCase();
+  if (["buy", "add", "trim", "sell", "exit", "initiate"].some((word) => a.includes(word))) return "actionable";
+  if (["avoid", "do not"].some((word) => a.includes(word))) return "do_not_act";
+  if (["research", "watch"].some((word) => a.includes(word))) return "watch";
+  return "observation";
+}
+
+function normalizeSignalSourceQuality(v: unknown): NonNullable<BriefingOutput["tradeSignals"][number]["sourceQuality"]> | undefined {
+  const rating = normalizeSourceRating(v);
+  return rating === "primary" || rating === "high" || rating === "medium" || rating === "low" ? rating : undefined;
+}
+
+function normalizeSourceRating(v: unknown): "primary" | "high" | "medium" | "low" {
+  const rating = String(v ?? "").toLowerCase();
+  if (rating === "primary" || rating === "high" || rating === "medium" || rating === "low") return rating;
+  return "medium";
+}
+
+function normalizeOverallSourceQuality(v: unknown): "high" | "medium" | "low" | "mixed" {
+  const rating = String(v ?? "").toLowerCase();
+  if (rating === "high" || rating === "medium" || rating === "low" || rating === "mixed") return rating;
+  return "mixed";
+}
+
+function normalizeCatalystType(v: unknown): NonNullable<BriefingOutput["catalystCalendar"]>[number]["type"] {
+  const type = String(v ?? "").toLowerCase();
+  if (type === "macro" || type === "earnings" || type === "company" || type === "ipo" || type === "fed" || type === "economic" || type === "other") return type;
+  return "other";
+}
+
+function normalizeThesisStatus(v: unknown): NonNullable<BriefingOutput["thesisLedger"]>[number]["status"] {
+  const status = String(v ?? "").toLowerCase();
+  if (status === "active" || status === "watch" || status === "strengthening" || status === "weakening" || status === "invalidated" || status === "expired") return status;
+  return "watch";
+}
+
+function normalizeConfidence(v: unknown): "high" | "medium" | "low" {
+  const confidence = String(v ?? "").toLowerCase();
+  if (confidence === "high" || confidence === "medium" || confidence === "low") return confidence;
+  return "medium";
+}
+
+function normalizePriority(v: unknown): "high" | "medium" | "low" {
+  const priority = String(v ?? "").toLowerCase();
+  if (priority === "high" || priority === "medium" || priority === "low") return priority;
+  return "medium";
 }
 
 function fallbackBriefing(today: string): BriefingOutput {

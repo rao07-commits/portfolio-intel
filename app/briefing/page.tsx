@@ -16,6 +16,34 @@ function riskColor(level: string): string {
   return map[level] || "text-slate-400";
 }
 
+function qualityColor(level: string | undefined): string {
+  const map: Record<string, string> = {
+    high: "text-green-400",
+    primary: "text-green-400",
+    medium: "text-yellow-400",
+    mixed: "text-yellow-400",
+    low: "text-red-400",
+    stale: "text-red-400",
+    missing: "text-red-400",
+    unknown: "text-slate-400",
+  };
+  return map[String(level || "").toLowerCase()] || "text-slate-400";
+}
+
+function actionStatusColor(status: string | undefined): string {
+  const map: Record<string, string> = {
+    actionable: "text-green-400 border-green-400/30 bg-green-400/10",
+    triggered: "text-green-400 border-green-400/30 bg-green-400/10",
+    watch: "text-yellow-400 border-yellow-400/30 bg-yellow-400/10",
+    observation: "text-slate-300 border-slate-500/30 bg-slate-500/10",
+    no_action: "text-slate-300 border-slate-500/30 bg-slate-500/10",
+    do_not_act: "text-red-400 border-red-400/30 bg-red-400/10",
+    expired: "text-red-400 border-red-400/30 bg-red-400/10",
+    blocked: "text-red-400 border-red-400/30 bg-red-400/10",
+  };
+  return map[String(status || "").toLowerCase()] || "text-slate-400 border-slate-500/30 bg-slate-500/10";
+}
+
 function formatDate(dateStr: string): string {
   const d = new Date(dateStr);
   return d.toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric", timeZone: "UTC" });
@@ -61,6 +89,66 @@ function BriefingView({ briefing, date }: { briefing: BriefingOutput; date: stri
         <h2 className="text-2xl font-bold text-white">{formatDate(date)}</h2>
         <p className="text-slate-500 text-sm mt-1">Daily Market Briefing</p>
       </div>
+
+      {/* What's New */}
+      {(briefing.whatChanged?.summary || briefing.whatChanged?.items?.length > 0) && (
+        <section className="bg-slate-800 rounded-xl p-6 border border-slate-700">
+          <h3 className="text-lg font-semibold text-white mb-3">What&apos;s New Today</h3>
+          {briefing.whatChanged.summary && <p className="text-slate-300 text-sm leading-relaxed mb-3">{briefing.whatChanged.summary}</p>}
+          <div className="space-y-2">
+            {briefing.whatChanged.items?.map((item, i) => (
+              <div key={i} className="border-l-2 border-blue-400 pl-3 text-slate-300 text-sm">{renderValue(item)}</div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Data Health */}
+      {briefing.dataHealth && ((briefing.dataHealth.items?.length || 0) > 0 || (briefing.dataHealth.warnings?.length || 0) > 0) && (
+        <section className="bg-slate-800 rounded-xl p-6 border border-slate-700">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-lg font-semibold text-white">Data Health</h3>
+            <span className={`text-xs uppercase font-bold ${qualityColor(briefing.dataHealth.overall)}`}>{briefing.dataHealth.overall}</span>
+          </div>
+          <div className="space-y-2">
+            {briefing.dataHealth.items?.map((item, i) => (
+              <div key={i} className="grid grid-cols-1 sm:grid-cols-[140px_90px_1fr] gap-2 border-b border-slate-700/50 pb-2 last:border-0">
+                <span className="text-white text-sm font-semibold">{item.name}</span>
+                <span className={`text-xs uppercase font-bold ${qualityColor(item.status)}`}>{item.status}</span>
+                <span className="text-slate-400 text-sm">{item.detail}{item.updatedAt ? <span className="text-slate-600"> ({item.updatedAt})</span> : null}</span>
+              </div>
+            ))}
+          </div>
+          {briefing.dataHealth.warnings?.length > 0 && (
+            <div className="mt-3 space-y-1">
+              {briefing.dataHealth.warnings.map((w, i) => <div key={i} className="text-yellow-400 text-sm">- {renderValue(w)}</div>)}
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* Action Discipline */}
+      {briefing.actionDiscipline && (briefing.actionDiscipline.summary || (briefing.actionDiscipline.actions?.length || 0) > 0) && (
+        <section className="bg-slate-800 rounded-xl p-6 border border-slate-700">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-lg font-semibold text-white">Action Discipline</h3>
+            <span className={`px-2 py-0.5 rounded border text-xs font-bold uppercase ${actionStatusColor(briefing.actionDiscipline.status)}`}>{briefing.actionDiscipline.status.replace(/_/g, " ")}</span>
+          </div>
+          {briefing.actionDiscipline.summary && <p className="text-slate-300 text-sm leading-relaxed mb-3">{briefing.actionDiscipline.summary}</p>}
+          <div className="space-y-2">
+            {briefing.actionDiscipline.actions?.map((a, i) => (
+              <div key={i} className="border border-slate-700 rounded-lg p-3">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-white text-sm font-semibold">{a.label}</span>
+                  <span className={`px-2 py-0.5 rounded border text-[10px] font-bold uppercase ${actionStatusColor(a.status)}`}>{a.status.replace(/_/g, " ")}</span>
+                </div>
+                {a.trigger && <p className="text-slate-400 text-xs mb-1"><span className="text-slate-500">Trigger:</span> {a.trigger}</p>}
+                <p className="text-slate-400 text-sm">{a.detail}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Market Overview */}
       <section className="bg-slate-800 rounded-xl p-6 border border-slate-700">
@@ -155,35 +243,98 @@ function BriefingView({ briefing, date }: { briefing: BriefingOutput; date: stri
                   <span className={`px-2 py-0.5 rounded text-xs font-bold uppercase border ${signalColor(s.action)}`}>{s.action}</span>
                   <span className="text-white font-bold">{s.symbol}</span>
                   {s.companyName && <span className="text-slate-500 text-xs">{s.companyName}</span>}
+                  {s.actionStatus && <span className={`px-2 py-0.5 rounded border text-[10px] font-bold uppercase ${actionStatusColor(s.actionStatus)}`}>{s.actionStatus.replace(/_/g, " ")}</span>}
                   <span className="ml-auto text-slate-500 text-xs">{s.confidence} confidence</span>
                 </div>
-                {(s.signalScore !== undefined || s.signalType || s.currentPrice !== undefined || s.priceChange1d !== undefined || s.priceChange5d !== undefined || s.dataQuality) && (
+                {(s.signalScore !== undefined || s.signalType || s.currentPrice !== undefined || s.priceChange1d !== undefined || s.priceChange5d !== undefined || s.dataQuality || s.sourceQuality) && (
                   <div className="flex gap-2 flex-wrap text-xs text-slate-500 mb-2">
                     {s.signalScore !== undefined && s.signalScore !== null && <span>Score {Number(s.signalScore).toFixed(0)}</span>}
                     {s.signalType && <span>{s.signalType}</span>}
                     {s.currentPrice !== undefined && s.currentPrice !== null && <span>${Number(s.currentPrice).toFixed(2)}</span>}
                     {s.priceChange1d !== undefined && s.priceChange1d !== null && <span>1D {formatPct(s.priceChange1d)}</span>}
                     {s.priceChange5d !== undefined && s.priceChange5d !== null && <span>5D {formatPct(s.priceChange5d)}</span>}
-                    {s.dataQuality && <span>Data: {s.dataQuality}</span>}
+                    {s.dataQuality && <span className={qualityColor(s.dataQuality)}>Data: {s.dataQuality}</span>}
+                    {s.sourceQuality && <span className={qualityColor(s.sourceQuality)}>Source: {s.sourceQuality}</span>}
                   </div>
                 )}
                 {s.triggerReason && <p className="text-slate-300 text-sm mb-2"><span className="text-slate-500">Trigger:</span> {s.triggerReason}</p>}
                 <p className="text-slate-400 text-sm mb-2">{s.reason}</p>
-                {s.riskNotes && <p className="text-slate-500 text-sm mb-2"><span className="text-slate-400">Risk:</span> {s.riskNotes}</p>}
-                {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                {(s as Record<string, any>).marketMispricing && (
+                {s.variantPerception && (
                   <div className="bg-amber-500/5 border border-amber-500/20 rounded-lg p-3 mb-2">
-                    <span className="text-amber-400 text-xs font-bold uppercase">Why the market has it wrong: </span>
-                    {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                    <span className="text-slate-300 text-sm">{(s as Record<string, any>).marketMispricing}</span>
+                    <span className="text-amber-400 text-xs font-bold uppercase">Variant view: </span>
+                    <span className="text-slate-300 text-sm">{s.variantPerception}</span>
                   </div>
                 )}
+                {s.riskNotes && <p className="text-slate-500 text-sm mb-2"><span className="text-slate-400">Risk:</span> {s.riskNotes}</p>}
                 <div className="flex gap-4 text-xs text-slate-500">
                   {s.entryRange && <span>Entry: {s.entryRange}</span>}
                   {s.targetPrice && <span>Target: {s.targetPrice}</span>}
                   {s.stopLoss && <span>Stop: {s.stopLoss}</span>}
                   {s.timeframe && <span>{s.timeframe}</span>}
                 </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Catalyst Calendar */}
+      {briefing.catalystCalendar && briefing.catalystCalendar.length > 0 && (
+        <section className="bg-slate-800 rounded-xl p-6 border border-slate-700">
+          <h3 className="text-lg font-semibold text-white mb-3">Catalyst Calendar</h3>
+          <div className="space-y-2">
+            {briefing.catalystCalendar.map((c, i) => (
+              <div key={i} className="grid grid-cols-1 sm:grid-cols-[96px_90px_1fr] gap-2 border-b border-slate-700/50 pb-3 last:border-0">
+                <span className="text-white text-sm font-semibold">{c.date}</span>
+                <span className="text-slate-500 text-xs uppercase">{c.type}</span>
+                <div>
+                  <div className="text-slate-200 text-sm font-semibold">{c.event}</div>
+                  {c.symbols && c.symbols.length > 0 && <div className="text-slate-500 text-xs mt-1">{c.symbols.join(", ")}</div>}
+                  <div className="text-slate-400 text-sm mt-1">{c.portfolioRelevance}</div>
+                  <div className="text-slate-600 text-xs mt-1">{c.source}{c.source ? " | " : ""}{c.confidence} confidence</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Thesis Ledger */}
+      {briefing.thesisLedger && briefing.thesisLedger.length > 0 && (
+        <section className="bg-slate-800 rounded-xl p-6 border border-slate-700">
+          <h3 className="text-lg font-semibold text-white mb-3">Thesis Ledger</h3>
+          <div className="space-y-3">
+            {briefing.thesisLedger.map((t, i) => (
+              <div key={i} className="border border-slate-700 rounded-lg p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-white font-bold">{t.symbol}</span>
+                  <span className={`px-2 py-0.5 rounded border text-[10px] font-bold uppercase ${actionStatusColor(t.status)}`}>{t.status}</span>
+                  {t.confidence && <span className={`text-xs ml-auto ${qualityColor(t.confidence)}`}>{t.confidence} confidence</span>}
+                </div>
+                <p className="text-slate-300 text-sm mb-2">{t.thesis}</p>
+                {t.catalyst && <p className="text-slate-500 text-sm"><span className="text-slate-400">Catalyst:</span> {t.catalyst}</p>}
+                {t.invalidation && <p className="text-slate-500 text-sm"><span className="text-slate-400">Invalidation:</span> {t.invalidation}</p>}
+                {t.nextReview && <p className="text-slate-600 text-xs mt-2">Next review: {t.nextReview}</p>}
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Research Backlog */}
+      {briefing.researchBacklog && briefing.researchBacklog.length > 0 && (
+        <section className="bg-slate-800 rounded-xl p-6 border border-slate-700">
+          <h3 className="text-lg font-semibold text-white mb-1">Research Quarantine</h3>
+          <p className="text-slate-500 text-xs mb-3">These items are intentionally not actionable until the missing evidence is resolved.</p>
+          <div className="space-y-2">
+            {briefing.researchBacklog.map((item, i) => (
+              <div key={i} className="border border-slate-700 rounded-lg p-3">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-white text-sm font-semibold">{item.topic}</span>
+                  <span className={`text-xs uppercase font-bold ${qualityColor(item.priority === "low" ? "unknown" : item.priority)}`}>{item.priority}</span>
+                </div>
+                <p className="text-slate-400 text-sm">{item.reason}</p>
+                <p className="text-slate-600 text-xs mt-1">Needed: {item.neededEvidence}</p>
               </div>
             ))}
           </div>
@@ -232,6 +383,69 @@ function BriefingView({ briefing, date }: { briefing: BriefingOutput; date: stri
               </div>
             ))}
           </div>
+        </section>
+      )}
+
+      {/* Portfolio Risk Dashboard */}
+      {briefing.portfolioRiskDashboard && (
+        <section className="bg-slate-800 rounded-xl p-6 border border-slate-700">
+          <h3 className="text-lg font-semibold text-white mb-3">Portfolio Risk Dashboard</h3>
+          {briefing.portfolioRiskDashboard.summary && <p className="text-slate-300 text-sm leading-relaxed mb-3">{briefing.portfolioRiskDashboard.summary}</p>}
+          {briefing.portfolioRiskDashboard.exposures?.length > 0 && (
+            <div className="grid gap-2 mb-4">
+              {briefing.portfolioRiskDashboard.exposures.map((e, i) => (
+                <div key={i} className="grid grid-cols-1 sm:grid-cols-[140px_110px_1fr] gap-2 border-b border-slate-700/50 pb-2 last:border-0">
+                  <span className="text-white text-sm font-semibold">{e.name}</span>
+                  <span className="text-slate-300 text-sm">{e.value}</span>
+                  <span className="text-slate-500 text-sm">{e.riskLevel && <span className={riskColor(e.riskLevel)}>{e.riskLevel}: </span>}{e.note}</span>
+                </div>
+              ))}
+            </div>
+          )}
+          {briefing.portfolioRiskDashboard.riskFlags?.length > 0 && (
+            <div className="mb-4 space-y-1">
+              {briefing.portfolioRiskDashboard.riskFlags.map((flag, i) => <div key={i} className="text-yellow-400 text-sm">- {renderValue(flag)}</div>)}
+            </div>
+          )}
+          {briefing.portfolioRiskDashboard.scenarios?.length > 0 && (
+            <div className="space-y-2">
+              {briefing.portfolioRiskDashboard.scenarios.map((s, i) => (
+                <div key={i} className="border-l-2 border-slate-600 pl-3">
+                  <div className="text-white text-sm font-semibold">{s.scenario}</div>
+                  <div className="text-slate-400 text-sm">{s.potentialImpact}</div>
+                  {s.watchItem && <div className="text-slate-600 text-xs mt-1">Watch: {s.watchItem}</div>}
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* Source Quality */}
+      {briefing.sourceQuality && ((briefing.sourceQuality.sources?.length || 0) > 0 || (briefing.sourceQuality.notes?.length || 0) > 0) && (
+        <section className="bg-slate-800 rounded-xl p-6 border border-slate-700">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-lg font-semibold text-white">Source Quality</h3>
+            <span className={`text-xs uppercase font-bold ${qualityColor(briefing.sourceQuality.overall)}`}>{briefing.sourceQuality.overall}</span>
+          </div>
+          <div className="space-y-2">
+            {briefing.sourceQuality.sources?.map((s, i) => (
+              <div key={i} className="grid grid-cols-1 sm:grid-cols-[160px_80px_1fr] gap-2 border-b border-slate-700/50 pb-2 last:border-0">
+                {s.url ? (
+                  <a href={s.url} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 text-sm font-semibold">{s.source}</a>
+                ) : (
+                  <span className="text-white text-sm font-semibold">{s.source}</span>
+                )}
+                <span className={`text-xs uppercase font-bold ${qualityColor(s.rating)}`}>{s.rating}</span>
+                <span className="text-slate-400 text-sm">{s.use}</span>
+              </div>
+            ))}
+          </div>
+          {briefing.sourceQuality.notes?.length > 0 && (
+            <div className="mt-3 space-y-1">
+              {briefing.sourceQuality.notes.map((note, i) => <div key={i} className="text-slate-400 text-sm">- {renderValue(note)}</div>)}
+            </div>
+          )}
         </section>
       )}
 

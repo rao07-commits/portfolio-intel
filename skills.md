@@ -71,8 +71,11 @@ opinionated, grounded in data, and focused on portfolio implications.
 
 Every briefing should consider:
 
+- Data health across the inputs used that day.
 - What changed versus the prior briefing.
 - Whether any allocation trigger actually fired.
+- Whether each idea is an observation, watch item, actionable trigger, blocked
+  item, expired item, or research-only item.
 - Portfolio holdings, prices, weights, and P&L where available.
 - Recent trade signals, so the email does not keep re-pitching the same names.
 - Market data quality and freshness before issuing confident signals.
@@ -87,6 +90,11 @@ Every briefing should consider:
 - Smart-money 13F data when there are new filings or meaningful quarterly
   changes.
 - Scorecard and valuation snapshots computed deterministically by code.
+- Catalyst calendar for macro, Fed/economic releases, earnings, IPOs, and
+  company-specific events.
+- Thesis ledger for active/watch ideas with invalidation and review dates.
+- Research backlog for unresolved tickers, rumors, and unverified claims.
+- Source-quality rating for the evidence used in the briefing.
 
 Avoid filler. If nothing changed, say that clearly and keep the section lean.
 
@@ -150,10 +158,45 @@ Rules:
 
 - Do not issue a high-confidence buy, trim, or sell on low-quality data.
 - If data is low quality, use `watch` or `research` style language.
+- If source quality is low, use `watch`, `observation`, or `research` style
+  language unless corroborated by a higher-quality source.
 - Flag stale or missing data directly in the trigger or risk notes.
 - Do not invent exact prices, yields, or percent moves when the tools did not
   provide them.
 - Corporate actions and splits should be flagged when detected or suspected.
+
+## 4A. Action Discipline
+
+The daily email must clearly separate insight from action.
+
+Use these states:
+
+- `observation`: useful information, no trade implication yet.
+- `watch`: potentially relevant, but the trigger has not fired.
+- `actionable`: a stated trigger fired today and data/source quality supports it.
+- `do_not_act`: tempting but not worth acting on.
+- `expired`: prior thesis or signal is no longer valid.
+- `blocked`: could be relevant, but missing data prevents a conclusion.
+
+The email must not say "place order", "pre-stage order", "ensure the order is
+live", or use similar execution language unless the action discipline section
+and the individual signal both say the item is actionable.
+
+## 4B. Source Quality
+
+Rate the evidence behind the briefing:
+
+- `primary`: company releases, SEC filings, official economic data, exchange or
+  regulator data.
+- `high`: Reuters, Bloomberg, Financial Times, WSJ, Barron's, The Information,
+  Morningstar, major bank research summaries.
+- `medium`: reputable secondary analysis or broad financial outlets when
+  corroborated.
+- `low`: pundit commentary, aggregators, social media, rumor, or unidentified
+  ticker/issuer references.
+
+Low-quality sources can inform sentiment, but they cannot create an actionable
+recommendation without corroboration.
 
 ## 5. Signal Engine
 
@@ -164,7 +207,9 @@ Each signal should include as many of these fields as the data supports:
 - `symbol`
 - `companyName`
 - `action`
+- `actionStatus`
 - `reason`
+- `variantPerception`
 - `currentPrice`
 - `priceChange1d`
 - `priceChange5d`
@@ -172,6 +217,7 @@ Each signal should include as many of these fields as the data supports:
 - `signalType`
 - `triggerReason`
 - `dataQuality`
+- `sourceQuality`
 - `riskNotes`
 - `entryRange`
 - `targetPrice`
@@ -215,6 +261,49 @@ Discovery requirement:
 Do not repeat recent names unless the thesis materially changed. If a prior idea
 is still in play, give a one-line status instead of a full re-pitch.
 
+## 5A. Catalyst Calendar
+
+Include the next 3-6 relevant catalysts when available:
+
+- Macro releases: CPI, PCE, jobs, ISM, GDP, retail sales.
+- Fed events: FOMC, minutes, major speeches when market-moving.
+- Earnings for current holdings and serious watchlist names.
+- Company events: analyst days, product launches, regulatory milestones,
+  customer wins, lockup expirations, or major conference appearances.
+- IPOs when they affect AI, semis, software, market structure, or current
+  holdings.
+
+Each catalyst should include date, type, symbols when relevant, confidence,
+source if available, and portfolio relevance.
+
+## 5B. Thesis Ledger
+
+Maintain a concise ledger of 3-6 active or watch theses:
+
+- `symbol`
+- `thesis`
+- `status`
+- `catalyst`
+- `invalidation`
+- `nextReview`
+- `confidence`
+
+Every thesis should have an invalidation condition. If a thesis has no clear
+review date or catalyst, it belongs in the research backlog instead.
+
+## 5C. Research Backlog
+
+Use the backlog to quarantine uncertainty:
+
+- Unresolved or unidentified tickers.
+- Claims that are interesting but not source-verified.
+- Rumors or pundit takes.
+- Stale prices, missing history, or missing portfolio quantities.
+- Ideas that need earnings, valuation, customer, regulatory, or technical
+  confirmation.
+
+Backlog items are not actionable.
+
 ## 6. Themes To Track
 
 The email should frame ideas as themes first and tickers second.
@@ -238,16 +327,23 @@ Core themes:
 The email should prioritize decision usefulness:
 
 1. What's New Today.
-2. Signal Scorecard.
-3. Valuation Snapshot.
-4. Trade Signals with score, type, trigger, risk, and data quality.
-5. Allocation Actions, only when a real trigger fired.
-6. Smart Money, only when new 13F data or meaningful changes exist.
-7. Monday week-ahead or Friday week-recap when applicable.
-8. Market Overview.
-9. News, IPOs, Sector Rotation.
-10. Portfolio Risk.
-11. Disclaimer.
+2. Data Health.
+3. Action Discipline.
+4. Signal Scorecard.
+5. Valuation Snapshot.
+6. Trade Signals with score, type, trigger, risk, data quality, and source
+   quality.
+7. Catalyst Calendar.
+8. Thesis Ledger.
+9. Research Backlog.
+10. Allocation Actions, only when a real trigger fired.
+11. Smart Money, only when new 13F data or meaningful changes exist.
+12. Monday week-ahead or Friday week-recap when applicable.
+13. Market Overview.
+14. News, IPOs, Sector Rotation.
+15. Portfolio Risk Dashboard.
+16. Source Quality.
+17. Disclaimer.
 
 Keep the email concise. The user should be able to understand what changed, what
 matters, and what action, if any, is worth considering.
@@ -266,6 +362,10 @@ matters, and what action, if any, is worth considering.
   trading urgency.
 - Hardcoded earnings dates may become stale and should be treated cautiously
   unless refreshed by a live source.
+- Tax-aware rebalancing is intentionally excluded. Accurate tax lots, realized
+  gains, and wash-sale checks would require brokerage data or manual cost-basis
+  exports, and that data should not be added to this app unless the user
+  explicitly changes the privacy boundary.
 
 ## 9. How To Update This File
 

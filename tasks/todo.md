@@ -2,6 +2,20 @@
 
 Remote agents should use this file to plan non-trivial tasks, track progress, and record the verification performed before reporting completion.
 
+## Current Task: Briefing Investor Discipline Sections
+
+### Plan
+- [x] Confirm the current briefing JSON contract, email renderer, browser page, and deployment scripts.
+- [x] Add additive briefing schema fields for data health, action discipline, catalyst calendar, thesis ledger, research backlog, source quality, and a richer portfolio risk dashboard.
+- [x] Update prompt/playbook instructions so the daily Claude-generated JSON actually populates those fields.
+- [x] Render the new fields in both the email digest and `/briefing` page.
+- [x] Add normalization/defaults so older briefings and partial model outputs still render safely.
+- [ ] Run lint, TypeScript, production build, and diff checks.
+- [ ] Push/deploy if verification passes and add the production briefing URL to Chrome bookmarks if browser automation is available.
+
+### Privacy Boundary
+- Tax-aware rebalancing is intentionally out of scope. Accurate tax-lot handling would require brokerage data or manual trade/cost-basis exports, and the user does not want that data in this system.
+
 ## Current Task: Deployment Access Check
 
 ### Plan

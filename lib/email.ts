@@ -62,6 +62,21 @@ function dataQualityColor(q: string | undefined): string {
   if (q === "high") return "#22c55e";
   if (q === "medium") return "#eab308";
   if (q === "low") return "#ef4444";
+  if (q === "missing" || q === "stale") return "#ef4444";
+  return "#64748b";
+}
+
+function sourceQualityColor(q: string | undefined): string {
+  if (q === "primary" || q === "high") return "#22c55e";
+  if (q === "medium" || q === "mixed") return "#eab308";
+  if (q === "low") return "#ef4444";
+  return "#64748b";
+}
+
+function actionStatusColor(status: string | undefined): string {
+  if (status === "actionable" || status === "triggered") return "#22c55e";
+  if (status === "watch" || status === "observation" || status === "no_action") return "#eab308";
+  if (status === "do_not_act" || status === "expired" || status === "blocked") return "#ef4444";
   return "#64748b";
 }
 
@@ -91,6 +106,39 @@ function renderWhatChanged(briefing: BriefingOutput): string {
     ${sectionHeading("What's New Today")}
     ${wc.summary ? `<p style="color:#e2e8f0;font-size:14px;line-height:1.6;font-weight:500;">${wc.summary}</p>` : ""}
     ${(wc.items || []).map((i) => `<div style="color:#cbd5e1;font-size:13px;margin:6px 0;padding-left:12px;border-left:3px solid #3b82f6;">${renderValue(i)}</div>`).join("")}`;
+}
+
+function renderDataHealth(briefing: BriefingOutput): string {
+  const health = briefing.dataHealth;
+  if (!health || ((!health.items || health.items.length === 0) && (!health.warnings || health.warnings.length === 0))) return "";
+  const rows = (health.items || []).slice(0, 8).map((item) => `
+    <tr style="${ROW}">
+      <td style="padding:7px 16px;color:#f1f5f9;font-size:13px;font-weight:600;">${safe(item.name)}</td>
+      <td style="padding:7px 8px;color:${dataQualityColor(item.status)};font-size:11px;font-weight:700;text-transform:uppercase;">${safe(item.status)}</td>
+      <td style="padding:7px 8px;color:#94a3b8;font-size:12px;">${safe(item.detail)}${item.updatedAt ? ` <span style="color:#475569;">(${safe(item.updatedAt)})</span>` : ""}</td>
+    </tr>`).join("");
+  const warnings = (health.warnings || []).map((w) => `<div style="color:#eab308;font-size:12px;margin-top:5px;">- ${renderValue(w)}</div>`).join("");
+  return `
+    ${sectionHeading("Data Health")}
+    <div style="color:#94a3b8;font-size:12px;margin-bottom:8px;">Overall: <span style="color:${dataQualityColor(health.overall)};font-weight:700;text-transform:uppercase;">${safe(health.overall)}</span></div>
+    ${rows ? `<table style="width:100%;border-collapse:collapse;"><tbody>${rows}</tbody></table>` : ""}
+    ${warnings}`;
+}
+
+function renderActionDiscipline(briefing: BriefingOutput): string {
+  const discipline = briefing.actionDiscipline;
+  if (!discipline || (!discipline.summary && (!discipline.actions || discipline.actions.length === 0))) return "";
+  const rows = (discipline.actions || []).slice(0, 6).map((a) => `
+    <tr style="${ROW}">
+      <td style="padding:8px 16px;color:#f1f5f9;font-size:13px;font-weight:600;">${safe(a.label)}</td>
+      <td style="padding:8px;color:${actionStatusColor(a.status)};font-size:11px;font-weight:700;text-transform:uppercase;">${safe(a.status).replace(/_/g, " ")}</td>
+      <td style="padding:8px;color:#94a3b8;font-size:12px;">${a.trigger ? `<strong style="color:#cbd5e1;">Trigger:</strong> ${safe(a.trigger)}<br>` : ""}${safe(a.detail)}</td>
+    </tr>`).join("");
+  return `
+    ${sectionHeading("Action Discipline")}
+    <p style="color:#cbd5e1;font-size:13px;line-height:1.5;margin:0 0 8px;">${safe(discipline.summary)}</p>
+    <div style="color:#94a3b8;font-size:12px;margin-bottom:8px;">Status: <span style="color:${actionStatusColor(discipline.status)};font-weight:700;text-transform:uppercase;">${safe(discipline.status).replace(/_/g, " ")}</span></div>
+    ${rows ? `<table style="width:100%;border-collapse:collapse;"><tbody>${rows}</tbody></table>` : ""}`;
 }
 
 function renderScorecard(scorecard: EnrichedSignal[] | undefined): string {
@@ -163,19 +211,22 @@ function renderTradeSignals(briefing: BriefingOutput): string {
       const meta: string[] = [];
       if (s.signalScore !== undefined && s.signalScore !== null) meta.push(`Score ${Number(s.signalScore).toFixed(0)}`);
       if (s.signalType) meta.push(s.signalType);
+      if (s.actionStatus) meta.push(`Status ${s.actionStatus.replace(/_/g, " ")}`);
       if (s.currentPrice !== undefined && s.currentPrice !== null) meta.push(`Price $${Number(s.currentPrice).toFixed(2)}`);
       if (s.priceChange1d !== undefined && s.priceChange1d !== null) meta.push(`1D ${fmtPct(s.priceChange1d)}`);
       if (s.priceChange5d !== undefined && s.priceChange5d !== null) meta.push(`5D ${fmtPct(s.priceChange5d)}`);
       const dq = s.dataQuality;
+      const sq = s.sourceQuality;
       return `
       <tr style="${ROW}">
         <td style="padding:10px 16px;">
           <span style="color:${signalColor(s.action)};font-weight:700;font-size:14px;">${s.action.toUpperCase()}</span>
           <span style="color:#f1f5f9;font-weight:600;margin-left:8px;">${s.symbol}</span>
           ${s.companyName ? `<span style="color:#64748b;font-size:12px;margin-left:6px;">${s.companyName}</span>` : ""}
-          ${meta.length > 0 || dq ? `<div style="color:#64748b;font-size:11px;margin-top:4px;">${meta.join(" &middot; ")}${dq ? `${meta.length > 0 ? " &middot; " : ""}<span style="color:${dataQualityColor(dq)};font-weight:700;">Data: ${dq}</span>` : ""}</div>` : ""}
+          ${meta.length > 0 || dq || sq ? `<div style="color:#64748b;font-size:11px;margin-top:4px;">${meta.join(" &middot; ")}${dq ? `${meta.length > 0 ? " &middot; " : ""}<span style="color:${dataQualityColor(dq)};font-weight:700;">Data: ${dq}</span>` : ""}${sq ? `${meta.length > 0 || dq ? " &middot; " : ""}<span style="color:${sourceQualityColor(sq)};font-weight:700;">Source: ${sq}</span>` : ""}</div>` : ""}
           ${s.triggerReason ? `<div style="color:#cbd5e1;font-size:12px;margin-top:4px;"><strong>Trigger:</strong> ${s.triggerReason}</div>` : ""}
           ${reason ? `<div style="color:#94a3b8;font-size:12px;margin-top:4px;">${reason}</div>` : ""}
+          ${s.variantPerception ? `<div style="color:#cbd5e1;font-size:12px;margin-top:4px;"><strong>Variant view:</strong> ${s.variantPerception}</div>` : ""}
           ${s.riskNotes ? `<div style="color:#94a3b8;font-size:12px;margin-top:4px;"><strong>Risk:</strong> ${s.riskNotes}</div>` : ""}
           <div style="color:#64748b;font-size:11px;margin-top:4px;">
             Entry: ${safe(s.entryRange)} &middot; Target: ${safe(s.targetPrice)} &middot; Stop: ${safe(s.stopLoss)} &middot; ${safe(s.timeframe)} &middot; Confidence: ${safe(s.confidence)}
@@ -186,6 +237,55 @@ function renderTradeSignals(briefing: BriefingOutput): string {
     .join("");
   return `
     ${sectionHeading("Trade Signals")}
+    <table style="width:100%;border-collapse:collapse;"><tbody>${rows}</tbody></table>`;
+}
+
+function renderCatalystCalendar(briefing: BriefingOutput): string {
+  const catalysts = briefing.catalystCalendar || [];
+  if (catalysts.length === 0) return "";
+  const rows = catalysts.slice(0, 6).map((c) => `
+    <tr style="${ROW}">
+      <td style="padding:8px 16px;color:#f1f5f9;font-size:12px;font-weight:700;white-space:nowrap;">${safe(c.date)}</td>
+      <td style="padding:8px;color:#94a3b8;font-size:12px;text-transform:uppercase;">${safe(c.type)}</td>
+      <td style="padding:8px;color:#f1f5f9;font-size:13px;font-weight:600;">${safe(c.event)}${c.symbols?.length ? `<div style="color:#64748b;font-size:11px;margin-top:2px;">${c.symbols.join(", ")}</div>` : ""}</td>
+      <td style="padding:8px;color:#94a3b8;font-size:12px;">${safe(c.portfolioRelevance)}${c.source ? `<div style="color:#475569;font-size:10px;margin-top:2px;">${safe(c.source)} &middot; ${safe(c.confidence)}</div>` : ""}</td>
+    </tr>`).join("");
+  return `
+    ${sectionHeading("Catalyst Calendar")}
+    <table style="width:100%;border-collapse:collapse;"><tbody>${rows}</tbody></table>`;
+}
+
+function renderThesisLedger(briefing: BriefingOutput): string {
+  const theses = briefing.thesisLedger || [];
+  if (theses.length === 0) return "";
+  const rows = theses.slice(0, 6).map((t) => `
+    <tr style="${ROW}">
+      <td style="padding:9px 16px;color:#f1f5f9;font-size:13px;font-weight:700;">${safe(t.symbol)}</td>
+      <td style="padding:9px 8px;color:${actionStatusColor(t.status)};font-size:11px;font-weight:700;text-transform:uppercase;">${safe(t.status)}</td>
+      <td style="padding:9px 8px;color:#94a3b8;font-size:12px;">
+        <div style="color:#cbd5e1;font-size:13px;">${safe(t.thesis)}</div>
+        ${t.catalyst ? `<div style="margin-top:3px;"><strong style="color:#cbd5e1;">Catalyst:</strong> ${safe(t.catalyst)}</div>` : ""}
+        ${t.invalidation ? `<div style="margin-top:3px;"><strong style="color:#cbd5e1;">Invalidation:</strong> ${safe(t.invalidation)}</div>` : ""}
+        ${t.nextReview || t.confidence ? `<div style="color:#64748b;font-size:11px;margin-top:3px;">${t.nextReview ? `Review: ${safe(t.nextReview)}` : ""}${t.nextReview && t.confidence ? " &middot; " : ""}${t.confidence ? `Confidence: ${safe(t.confidence)}` : ""}</div>` : ""}
+      </td>
+    </tr>`).join("");
+  return `
+    ${sectionHeading("Thesis Ledger")}
+    <table style="width:100%;border-collapse:collapse;"><tbody>${rows}</tbody></table>`;
+}
+
+function renderResearchBacklog(briefing: BriefingOutput): string {
+  const backlog = briefing.researchBacklog || [];
+  if (backlog.length === 0) return "";
+  const rows = backlog.slice(0, 5).map((item) => `
+    <tr style="${ROW}">
+      <td style="padding:8px 16px;color:#f1f5f9;font-size:13px;font-weight:600;">${safe(item.topic)}</td>
+      <td style="padding:8px;color:${item.priority === "high" ? "#ef4444" : item.priority === "medium" ? "#eab308" : "#64748b"};font-size:11px;font-weight:700;text-transform:uppercase;">${safe(item.priority)}</td>
+      <td style="padding:8px;color:#94a3b8;font-size:12px;">${safe(item.reason)}<div style="color:#64748b;font-size:11px;margin-top:3px;">Needed: ${safe(item.neededEvidence)}</div></td>
+    </tr>`).join("");
+  return `
+    ${sectionHeading("Research Quarantine")}
+    <p style="color:#64748b;font-size:12px;margin:0 0 8px;">These items are intentionally not actionable until the missing evidence is resolved.</p>
     <table style="width:100%;border-collapse:collapse;"><tbody>${rows}</tbody></table>`;
 }
 
@@ -333,6 +433,48 @@ function renderPortfolioRisk(briefing: BriefingOutput): string {
     </div>`;
 }
 
+function renderPortfolioRiskDashboard(briefing: BriefingOutput): string {
+  const dashboard = briefing.portfolioRiskDashboard;
+  if (!dashboard || (!dashboard.summary && (dashboard.exposures || []).length === 0 && (dashboard.riskFlags || []).length === 0 && (dashboard.scenarios || []).length === 0)) return "";
+  const exposures = (dashboard.exposures || []).slice(0, 6).map((e) => `
+    <tr style="${ROW}">
+      <td style="padding:7px 16px;color:#f1f5f9;font-size:13px;font-weight:600;">${safe(e.name)}</td>
+      <td style="padding:7px 8px;color:#cbd5e1;font-size:12px;">${safe(e.value)}</td>
+      <td style="padding:7px 8px;color:${riskColor(safe(e.riskLevel))};font-size:11px;font-weight:700;text-transform:uppercase;">${safe(e.riskLevel)}</td>
+      <td style="padding:7px 8px;color:#94a3b8;font-size:12px;">${safe(e.note)}</td>
+    </tr>`).join("");
+  const flags = (dashboard.riskFlags || []).map((flag) => `<div style="color:#eab308;font-size:12px;margin-top:5px;">- ${renderValue(flag)}</div>`).join("");
+  const scenarios = (dashboard.scenarios || []).slice(0, 4).map((s) => `
+    <div style="border-left:3px solid #64748b;padding-left:10px;margin:8px 0;">
+      <div style="color:#f1f5f9;font-size:13px;font-weight:600;">${safe(s.scenario)}</div>
+      <div style="color:#94a3b8;font-size:12px;margin-top:2px;">${safe(s.potentialImpact)}</div>
+      ${s.watchItem ? `<div style="color:#64748b;font-size:11px;margin-top:2px;">Watch: ${safe(s.watchItem)}</div>` : ""}
+    </div>`).join("");
+  return `
+    ${sectionHeading("Portfolio Risk Dashboard")}
+    ${dashboard.summary ? `<p style="color:#cbd5e1;font-size:13px;line-height:1.5;margin:0 0 8px;">${safe(dashboard.summary)}</p>` : ""}
+    ${exposures ? `<table style="width:100%;border-collapse:collapse;"><tbody>${exposures}</tbody></table>` : ""}
+    ${flags}
+    ${scenarios ? `<div style="margin-top:10px;">${scenarios}</div>` : ""}`;
+}
+
+function renderSourceQuality(briefing: BriefingOutput): string {
+  const sourceQuality = briefing.sourceQuality;
+  if (!sourceQuality || ((sourceQuality.sources || []).length === 0 && (sourceQuality.notes || []).length === 0)) return "";
+  const rows = (sourceQuality.sources || []).slice(0, 8).map((s) => `
+    <tr style="${ROW}">
+      <td style="padding:7px 16px;color:#f1f5f9;font-size:13px;font-weight:600;">${s.url ? `<a href="${s.url}" style="color:#60a5fa;text-decoration:none;">${safe(s.source)}</a>` : safe(s.source)}</td>
+      <td style="padding:7px 8px;color:${sourceQualityColor(s.rating)};font-size:11px;font-weight:700;text-transform:uppercase;">${safe(s.rating)}</td>
+      <td style="padding:7px 8px;color:#94a3b8;font-size:12px;">${safe(s.use)}</td>
+    </tr>`).join("");
+  const notes = (sourceQuality.notes || []).map((note) => `<div style="color:#94a3b8;font-size:12px;margin-top:5px;">- ${renderValue(note)}</div>`).join("");
+  return `
+    ${sectionHeading("Source Quality")}
+    <div style="color:#94a3b8;font-size:12px;margin-bottom:8px;">Overall: <span style="color:${sourceQualityColor(sourceQuality.overall)};font-weight:700;text-transform:uppercase;">${safe(sourceQuality.overall)}</span></div>
+    ${rows ? `<table style="width:100%;border-collapse:collapse;"><tbody>${rows}</tbody></table>` : ""}
+    ${notes}`;
+}
+
 export async function sendBriefingDigest(
   briefing: BriefingOutput,
   recipientEmail: string,
@@ -359,9 +501,14 @@ export async function sendBriefingDigest(
       </div>
 
       ${renderWhatChanged(briefing)}
+      ${renderDataHealth(briefing)}
+      ${renderActionDiscipline(briefing)}
       ${renderScorecard(extras.scorecard)}
       ${renderValuation(extras.valuation)}
       ${renderTradeSignals(briefing)}
+      ${renderCatalystCalendar(briefing)}
+      ${renderThesisLedger(briefing)}
+      ${renderResearchBacklog(briefing)}
       ${renderAllocation(briefing)}
       ${renderSmartMoney(briefing)}
       ${renderDayFlavor(briefing, extras.earnings)}
@@ -369,7 +516,9 @@ export async function sendBriefingDigest(
       ${renderNews(briefing)}
       ${renderIpos(briefing)}
       ${renderSectorRotation(briefing)}
+      ${renderPortfolioRiskDashboard(briefing)}
       ${renderPortfolioRisk(briefing)}
+      ${renderSourceQuality(briefing)}
 
       <!-- Disclaimer -->
       <div style="text-align:center;margin-top:32px;padding-top:16px;border-top:1px solid #334155;">
