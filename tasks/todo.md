@@ -8,12 +8,23 @@ Remote agents should use this file to plan non-trivial tasks, track progress, an
 - [x] Confirm why the production page still looked unchanged.
 - [x] Record the correction pattern in `tasks/lessons.md`.
 - [x] Add a visible archived-briefing state for records generated before the new investor-discipline JSON fields existed.
-- [ ] Run lint, TypeScript, production build, and diff checks.
-- [ ] Commit, push, and verify Vercel production.
+- [x] Run lint, TypeScript, production build, and diff checks.
+- [x] Commit, push, and verify Vercel production.
 
 ### Findings
 - The deployment was live, but `/briefing` was rendering the latest stored June 19 briefing. That stored JSON predates the new fields, so the new sections were correctly coded but invisible for the currently selected archive record.
 - Local `.env.local` does not contain `CRON_SECRET`, `ANTHROPIC_API_KEY`, `RESEND_API_KEY`, or `DIGEST_EMAIL`, so I cannot safely generate a fresh production briefing locally without pulling or using production secrets.
+
+### Review
+- Added an `Investor Discipline Framework` panel on archived briefings that do not yet contain the new JSON fields. It lists Data Health, Action Discipline, Catalyst Calendar, Thesis Ledger, Research Quarantine, and Source Quality as pending for the next generated run.
+- Pushed commit `f06d82b Show briefing framework for archived records`.
+- Verified production deployment `dpl_7RVUSxqgyLhozFWZm3Qnmsudoe17` is `Ready` and aliased to `https://portfolio-intel-pearl.vercel.app`.
+
+### Verification
+- `npm run lint` passed.
+- `npx tsc --noEmit` passed.
+- `npm run build` passed with the pre-existing Recharts static-render warnings.
+- `git diff --check` passed.
 
 ## Current Task: Briefing Investor Discipline Sections
 
